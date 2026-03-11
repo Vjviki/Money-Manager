@@ -1,0 +1,141 @@
+.moneysignup-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background-color: #f0f2f5;
+}
+
+.moneysignup-form-container {
+  background-color: #ffffff;
+  padding: 40px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  width: 400px;
+}
+
+.moneysignup-logo {
+  font-size: 32px;
+  font-weight: 700;
+  color: #4a90e2;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.sign-up-header {
+  font-size: 24px;
+  margin-bottom: 20px;
+  text-align: center;
+  color: #333333;
+}
+
+.sign-in-subheader {
+  font-size: 16px;
+  margin-bottom: 30px;
+  text-align: center;
+  color: #666666;
+}
+
+.sign-in-link {
+  color: #007bff;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.sign-in-link:hover {
+  text-decoration: underline;
+}
+
+.moneysignup-form {
+  display: flex;
+  flex-direction: column;
+}
+
+.moneysignup-input-container {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 15px;
+}
+
+.input-label {
+  font-weight: 600;
+  color: #555555;
+}
+
+.moneysignup-input {
+  padding: 12px;
+  margin-bottom: 15px;
+  border: 1px solid #cccccc;
+  border-radius: 4px;
+  font-size: 16px;
+}
+
+.password-eye-icon {
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.eye-icon {
+  color: #888888;
+}
+
+.moneysignup-password-container {
+  padding: 8px;
+  border: 1px solid #cccccc;
+  border-radius: 4px;
+  font-size: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.moneysignup-password-input {
+    border: none;
+    outline: none;
+    flex-grow: 1;
+    background-color: transparent;
+}
+
+.gender-radio-option-container {
+  display: flex;
+  align-items: center;
+}
+
+.gender-radio-container {
+  display: flex;
+  gap: 15px;
+  margin-top: 8px;
+  margin-bottom: 10px;
+}
+
+.radio-input {
+  margin-right: 6px;
+}
+
+.moneysignup-button {
+  padding: 12px;
+  background-color: #28a745;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.moneysignup-button:hover {
+  background-color: #218838;
+}
+
+.error-message {
+  color: #ff0000;
+  margin-top: 10px;
+  text-align: center;
+}
+
+.success-message {
+  color: #28a745;
+  margin-top: 10px;
+  text-align: center;
+}

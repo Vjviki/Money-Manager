@@ -1,0 +1,123 @@
+.navbar {
+  padding: 12px 24px;
+  background-color: #f8fafc;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+/* Main container */
+.responsive-navbar-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 90%;
+  max-width: 1200px;
+}
+
+/* Logo */
+.navbar-logo {
+  border-radius: 12px;
+  background-color: #e0bbf5;
+  border: none;
+  outline: none;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.navbar-logo:hover {
+  background-color: #d8aef2;
+}
+
+.navbar-logo-title {
+  color: #1e293b;
+  font-family: "Poppins", "Roboto", sans-serif;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+/* Menu links (desktop) */
+.navbar-menu-links {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  transition: all 0.3s ease;
+}
+
+.navbar-menu-link {
+  color: #1e293b;
+  font-family: "Poppins", sans-serif;
+  font-size: 16px;
+  font-weight: 500;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: color 0.3s ease, transform 0.2s ease;
+}
+
+.navbar-menu-link:hover {
+  color: #3b82f6;
+  transform: scale(1.05);
+}
+
+.navbar-menu-link.active {
+  color: #2563eb;
+  border-bottom: 2px solid #2563eb;
+}
+
+/* Logout Button */
+.navbar-logout-button {
+  padding: 8px 16px;
+  background-color: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-family: "Poppins", sans-serif;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.navbar-logout-button:hover {
+  background-color: #dc2626;
+}
+
+/* Mobile Menu Icon */
+.navbar-menu-icon {
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #1e293b;
+}
+
+/* Responsive for mobile screens */
+@media (max-width: 768px) {
+  .navbar-menu-icon {
+    display: block;
+  }
+
+  .navbar-menu-links {
+    display: none;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+    position: absolute;
+    top: 65px;
+    right: 20px;
+    background-color: #ffffff;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+    padding: 16px;
+    border-radius: 8px;
+  }
+
+  .navbar-menu-links.open {
+    display: flex;
+  }
+}
