@@ -5,6 +5,7 @@ const { open } = require("sqlite");
 const sqlite3 = require("sqlite3");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const ExcelJS = require("exceljs");
 
 const app = express();
 app.use(cors());
@@ -187,7 +188,7 @@ app.post("/reset-month", authenticateToken, async (req, res) => {
     await db.run(`
       INSERT INTO transactions_backup 
       (id,title,amount,type,category,date,backup_month)
-      SELECT id,title,amount,type,category,date,'${currentMonth}'
+      SELECT id,title,amount,type,category,created_at,'${currentMonth}'
       FROM transactions
     `)
 
@@ -200,6 +201,73 @@ app.post("/reset-month", authenticateToken, async (req, res) => {
     res.status(500).send({error:error.message})
   }
 })
+
+app.get("/monthly-summary", authenticateToken, async (req, res) => {
+  try {
+    const data = await db.all(`
+      SELECT 
+        backup_month,
+        SUM(CASE WHEN type='Expenses' THEN amount ELSE 0 END) as expenses,
+        SUM(CASE WHEN type='Income' THEN amount ELSE 0 END) as income
+      FROM transactions_backup
+      GROUP BY backup_month
+      ORDER BY backup_month DESC
+    `);
+
+    const result = data.map(each => ({
+      month: each.backup_month,
+      expenses: each.expenses,
+      savings: each.income - each.expenses
+    }));
+
+    res.send(result);
+
+  } catch (error) {
+    res.status(500).send({ error: error.message });
+  }
+});
+
+app.get("/monthly-details/:month", authenticateToken, async (req, res) => {
+  const { month } = req.params;
+
+  const data = await db.all(`
+    SELECT * FROM transactions_backup
+    WHERE backup_month = ?
+  `, [month]);
+
+  res.send({ transactions: data });
+});
+
+app.get("/export-month/:month", authenticateToken, async (req, res) => {
+  const { month } = req.params;
+
+  const data = await db.all(`
+    SELECT * FROM transactions_backup
+    WHERE backup_month = ?
+  `, [month]);
+
+  const ExcelJS = require("exceljs");
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet("Monthly Report");
+
+  sheet.columns = [
+    { header: "Title", key: "title" },
+    { header: "Category", key: "category" },
+    { header: "Amount", key: "amount" },
+    { header: "Type", key: "type" },
+    { header: "Date", key: "date" },
+  ];
+
+  data.forEach(row => sheet.addRow(row));
+
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename=${month}.xlsx`
+  );
+
+  await workbook.xlsx.write(res);
+  res.end();
+});
 
 app.delete("/transactions/:id", authenticateToken, async (req, res) => {
   const { id } = req.params

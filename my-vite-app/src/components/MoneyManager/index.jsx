@@ -149,9 +149,6 @@ class MoneyManager extends Component {
       return;
     }
 
-    if (window.confirm("Are you sure you want to reset this month?")) {
-      this.resetMonth();
-    }
 
     const finalCategory = category === "Custom" ? customCategory : category;
 

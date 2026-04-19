@@ -122,12 +122,33 @@
   margin-bottom: 15px;
   display: flex;
   justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+@media screen and (max-width: 768px) {
+  .filter-container {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
 
 .filter-type-month {
   display: flex;
   gap: 10px;
   align-items: center;
+}
+
+@media screen and (max-width: 768px) {
+  .filter-type-month {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .filter-type-month select,
+  .filter-type-month input {
+    width: 48%;
+  }
 }
 
 .reset-btn {
@@ -139,6 +160,14 @@
   cursor: pointer;
   font-weight: 500;
   transition: 0.2s;
+}
+
+@media screen and (max-width: 768px) {
+  .reset-btn {
+    width: 100%;
+    padding: 10px;
+    font-size: 14px;
+  }
 }
 
 .reset-btn:hover {
