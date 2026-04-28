@@ -1,6 +1,5 @@
 import { Component } from "react";
 import Cookies from "js-cookie";
-import { v4 } from "uuid";
 
 import TransactionItem from "../TransactionItem";
 import MoneyDetails from "../MoneyDetails";
@@ -155,25 +154,6 @@ class MoneyManager extends Component {
     const typeOption = transactionTypeOptions.find(
       (eachTransaction) => eachTransaction.optionId === optionId,
     );
-    const { displayText } = typeOption;
-    const newTransaction = {
-      id: v4(),
-      title: titleInput,
-      amount: parseInt(amountInput),
-      type: displayText,
-      category: finalCategory,
-      date: dateInput,
-    };
-
-    this.setState((prevState) => ({
-      transactionsList: [...prevState.transactionsList, newTransaction],
-      titleInput: "",
-      amountInput: "",
-      dateInput: "",
-      category: "Food",
-      customCategory: "",
-      optionId: transactionTypeOptions[0].optionId,
-    }));
 
     try {
       const jwtToken = Cookies.get("jwt_token");
@@ -185,17 +165,29 @@ class MoneyManager extends Component {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          title: newTransaction.title,
-          amount: newTransaction.amount,
-          type: newTransaction.type,
-          category: newTransaction.category,
-          date: newTransaction.date,
+          title: titleInput,
+          amount: parseInt(amountInput),
+          type: typeOption.displayText,
+          category: finalCategory,
+          date: dateInput,
         }),
       };
 
       const response = await fetch(url, options);
-      const data = await response.json();
-      console.log("Transaction added response:", data);
+      if(response.ok){
+        await this.fetchUserData
+
+        this.setState({
+        titleInput: "",
+        amountInput: "",
+        dateInput: "",
+        category: "Food",
+        customCategory: "",
+        optionId: transactionTypeOptions[0].optionId,
+      });
+    } else {
+      console.log("Failed to add transaction");
+    }
     } catch (error) {
       console.error("Error adding transaction:", error);
     }

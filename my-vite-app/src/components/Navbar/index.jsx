@@ -1,12 +1,11 @@
 import { Menu, X } from "lucide-react";
 import Cookies from "js-cookie";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, NavLink } from "react-router-dom";
 import "./index.css";
 
 const Navbar = () => {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [activeBar, setActiveBar] = useState("home");
 
   const toggleMenu = () => setMenuOpen(!menuOpen);
   const navigate = useNavigate();
@@ -46,24 +45,30 @@ const Navbar = () => {
 
         {/* Links */}
         <div className={`navbar-menu-links ${menuOpen ? "open" : ""}`}>
-          <button
-            className={`navbar-menu-link ${activeBar == "home" ? "active" : ""}`}
-            onClick={homeBtn}
+          <NavLink
+            to="/"
+            className={({ isActive }) =>
+              `navbar-menu-link ${isActive ? "active" : ""}`
+            }
           >
             Home
-          </button>
-          <button
-            className={`navbar-menu-link ${activeBar == "analytics" ? "active" : ""}`}
-            onClick={analyticBtn}
+          </NavLink>
+          <NavLink
+            to="/analytics"
+            className={({ isActive }) =>
+              `navbar-menu-link ${isActive ? "active" : ""}`
+            }
           >
             Analytics
-          </button>
-          <button
-            className={`navbar-menu-link ${activeBar == "profile" ? "active" : ""}`}
-            onClick={profileBtn}
+          </NavLink>
+          <NavLink
+            to="/profile"
+            className={({ isActive }) =>
+              `navbar-menu-link ${isActive ? "active" : ""}`
+            }
           >
             Profile
-          </button>
+          </NavLink>
           <button className="navbar-logout-button" onClick={logoutBtn}>
             Logout
           </button>

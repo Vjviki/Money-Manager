@@ -31,6 +31,7 @@ const Analytics = () => {
   const [selectedMonth, setSelectedMonth] = useState(null);
   const [monthDetails, setMonthDetails] = useState([]);
   const [monthlyData, setMontlyData] = useState([]);
+  const [error, setError] = useState([]);
 
   const categoryTotals = monthDetails
     .filter((item) => item.type === "Expenses")
@@ -84,19 +85,25 @@ const Analytics = () => {
   const analyticsData = async () => {
     const url = "http://localhost:3000/analytics";
     const jwtToken = Cookies.get("jwt_token");
+    try {
+      const options = {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${jwtToken}`,
+        },
+      };
 
-    const options = {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${jwtToken}`,
-      },
-    };
+      const response = await fetch(url, options);
+      const data = await response.json();
 
-    const response = await fetch(url, options);
-    const data = await response.json();
-
-    if (response.ok) {
+      if (!response.ok) {
+        throw new Error("Failed to fetch analytics");
+      }
       setCategoryData(data);
+      setError(null);
+    } catch (err) {
+      console.error("Analytics error:", err);
+      setError("Failed to load analytics");
     }
   };
 
@@ -120,23 +127,34 @@ const Analytics = () => {
 
   const downloadMonth = async (month) => {
     const jwtToken = Cookies.get("jwt_token");
-
-    const response = await fetch(
-      `http://localhost:3000/export-month/${month}`,
-      {
-        headers: {
-          Authorization: `Bearer ${jwtToken}`,
+    try {
+      const response = await fetch(
+        `http://localhost:3000/export-month/${month}`,
+        {
+          headers: {
+            Authorization: `Bearer ${jwtToken}`,
+          },
         },
-      },
-    );
+      );
 
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
+      if (!response.ok) {
+        throw new Error("Export failed");
+      }
 
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${month}.xlsx`;
-    a.click();
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${month}.xlsx`;
+      a.click();
+
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Download error:", error);
+      alert("Download failed. Try again.");
+    }
   };
 
   const fetchDate = async () => {

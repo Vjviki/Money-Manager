@@ -50,7 +50,7 @@
 }
 
 .navbar-menu-link {
-  color: #1e293b;
+  color: inherit;
   font-family: "Poppins", sans-serif;
   font-size: 16px;
   font-weight: 500;
@@ -58,6 +58,7 @@
   border: none;
   cursor: pointer;
   transition: color 0.3s ease, transform 0.2s ease;
+  text-decoration: none;
 }
 
 .navbar-menu-link:hover {

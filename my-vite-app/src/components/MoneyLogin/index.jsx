@@ -67,7 +67,7 @@ const MoneyLogin = () => {
         <p className="login-subtitle">Login to your account</p>
         <form className="login-form" onSubmit={handleLogin}>
           <div className="form-group">
-            <label htmlFor="username" className="label" forhtml="username">
+            <label htmlFor="username" className="label">
               Username
             </label>
             <input
@@ -79,7 +79,7 @@ const MoneyLogin = () => {
             />
           </div>
           <div className="form-group">
-            <label htmlFor="password" className="label" forhtml="password">
+            <label htmlFor="password" className="label">
               Password
             </label>
             <div className="moneysignup-password-container">

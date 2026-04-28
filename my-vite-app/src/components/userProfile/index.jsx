@@ -23,13 +23,13 @@ const UserProfileDetails = () => {
       const data = await response.json();
       if (response.ok) {
         setUserData(data);
+        console.log(data)
       } else {
         console.log("Profile Data Error");
       }
     } catch (error) {
       console.log("Server Error", error);
     }
-    console.log(userData)
   };
   return (
     <div className="profile-container">

@@ -1,8 +1,8 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate  } from "react-router-dom";
 import MoneyManager from "./components/MoneyManager";
 import MoneyLogin from "./components/MoneyLogin";
-import MoneySignUp from "./components/MoneyRegistor";
-import UserProfileDetails from "./components/userProfile";
+import MoneySignUp from "./components/MoneyRegister";
+import UserProfileDetails from "./components/UserProfile";
 import ProtectedRoutes from "./components/ProtectedRoutes";
 import Analytics from "./components/Analytics";
 
@@ -17,6 +17,7 @@ const App = () => {
         <Route path="/" element={<MoneyManager />} />
         <Route path="/profile" element={<UserProfileDetails />} />
         <Route path="/analytics" element={<Analytics />} />
+        <Route path="*" element={<Navigate to="/" replace/>} />
       </Route>
     </Routes>
   );
