@@ -4,7 +4,7 @@ import { Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
 import "./index.css";
 
-const MoneySignUp = () => {
+const MoneyRegister = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("");
@@ -178,4 +178,4 @@ const MoneySignUp = () => {
   );
 };
 
-export default MoneySignUp;
+export default MoneyRegister;

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import Cookies from "js-cookie";
 import "./index.css";
 
-const UserProfileDetails = () => {
+const UserProfile = () => {
   const [userData, setUserData] = useState({});
 
   useEffect(() => {
@@ -105,4 +105,4 @@ const UserProfileDetails = () => {
   );
 };
 
-export default UserProfileDetails;
+export default UserProfile;
