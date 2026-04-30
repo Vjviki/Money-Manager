@@ -9,7 +9,7 @@ const UserProfile = () => {
     userProfile();
   }, []);
 
-  const userProfile = async () => {
+  const UserProfile = async () => {
     try {
       const url = "http://localhost:3000/profile";
       const jwtToken = Cookies.get("jwt_token");
