@@ -6,10 +6,10 @@ const UserProfile = () => {
   const [userData, setUserData] = useState({});
 
   useEffect(() => {
-    userProfile();
+    userProfileDetails();
   }, []);
 
-  const UserProfile = async () => {
+  const userProfileDetails = async () => {
     try {
       const url = "http://localhost:3000/profile";
       const jwtToken = Cookies.get("jwt_token");
