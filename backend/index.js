@@ -1,8 +1,7 @@
+require("dotenv").config();
 const cors = require("cors");
 const express = require("express");
-const path = require("path");
-const { open } = require("sqlite");
-const sqlite3 = require("better-sqlite3");
+const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const ExcelJS = require("exceljs");
@@ -10,244 +9,313 @@ const ExcelJS = require("exceljs");
 const app = express();
 app.use(cors());
 app.use(express.json());
-const dbpath = path.join(__dirname, "user.db");
-let db = null;
-const PORT = process.env.PORT || 3000
 
-const initilizeDBAndServer = async () => {
-  try {
-    db = await open({
-      filename: dbpath,
-      driver: sqlite3.Database,
-    });
+const PORT = process.env.PORT || 3000;
+
+// ✅ MongoDB Connection
+mongoose
+  .connect(process.env.MONGO_URL)
+  .then(() => {
+    console.log("MongoDB Connected");
     app.listen(PORT, () => {
-      console.log(`Server Running at ${PORT}`);
+      console.log(`Server Running on ${PORT}`);
     });
-  } catch (e) {
-    console.log(`DB Error: ${e.message}`);
+  })
+  .catch((err) => {
+    console.log("Mongo Error:", err);
     process.exit(1);
-  }
-};
-initilizeDBAndServer();
-
-const authenticateToken = (request, response, next) => {
-  const authHeader = request.headers["authorization"];
-
-  if (authHeader === undefined) {
-    response.status(401).send({ error: "Missing JWT Token" });
-  } else {
-    const jwtToken = authHeader.split(" ")[1];
-    jwt.verify(jwtToken, "MY_SECRET_KEY", (error, payload) => {
-      if (error) {
-        response.status(401).send({ error: "Invalid JWT Token" });
-      } else {
-        request.user = payload;
-        next();
-      }
-    });
-  }
-};
-
-app.post("/login", async (request, response) => {
-  const { username, password } = request.body;
-  const selectQuery = `SELECT * FROM users WHERE username = '${username}';`;
-  const dbUser = await db.get(selectQuery);
-  if (dbUser === undefined) {
-    response.status(400).json({ errorMessage: "Invalid user" });
-  } else {
-    const isPasswordMatched = await bcrypt.compare(password, dbUser.password);
-    if (isPasswordMatched === true) {
-      const payload = {
-        id: dbUser.id,
-        username: dbUser.username,
-      };
-      const jwtToken = jwt.sign(payload, "MY_SECRET_KEY");
-      response.send({ jwtToken });
-    } else {
-      response.status(400).json({ errorMessage: "Invalid password" });
-    }
-  }
-});
-
-app.post("/register", async (request, response) => {
-  const { name, username, gender, email, password } = request.body;
-  const hashedPassword = await bcrypt.hash(password, 10);
-  const selectUserQuery = `SELECT * FROM users WHERE username = '${username}';`;
-  const dbUser = await db.get(selectUserQuery);
-  if (dbUser === undefined) {
-    const createUserQuery = `INSERT INTO users (name, username, gender, email, password)
-        VALUES ('${name}', '${username}', '${gender}', '${email}', '${hashedPassword}');`;
-    await db.run(createUserQuery);
-    response.status(200).json({ message: "User created successfully" });
-  } else {
-    response.status(400).json({ message: "User already exists" });
-  }
-});
-
-app.get("/profile", authenticateToken, async (request, response) => {
-  const username = request.user.username;
-  const getUserQuery = `SELECT id, name, username, gender, email FROM users WHERE username = '${username}';`;
-  const user = await db.get(getUserQuery);
-
-  if (user === undefined) {
-    response.status(404).send({ error: "User not found" });
-  } else {
-    response.send(user);
-  }
-});
-
-app.post("/", authenticateToken, async (request, response) => {
-  const username = request.user.username;
-  const { title, amount, type, date, category} = request.body;
-
-  const userQuery = `SELECT id FROM users WHERE username = ?`;
-  const user = await db.get(userQuery, [username]);
-
-  const id = user.id;
-
-  const updateUserQuery = `INSERT INTO transactions (user_id, title, amount, type, created_at, category) VALUES (?, ?, ?, ?, ?, ?);`;
-  await db.run(updateUserQuery, [id, title, amount, type, date, category]);
-  response.json({
-    message: "Transaction added successfully",
   });
+
+/* ================= MODELS ================= */
+
+// USER
+const User = mongoose.model(
+  "User",
+  new mongoose.Schema(
+    {
+      name: String,
+      username: { type: String, unique: true },
+      gender: { type: String, enum: ["Male", "Female", "Others"] },
+      email: { type: String, unique: true },
+      password: String,
+    },
+    { timestamps: { createdAt: "created_at", updatedAt: false } },
+  ),
+);
+
+// TRANSACTION
+const Transaction = mongoose.model(
+  "Transaction",
+  new mongoose.Schema({
+    user_id: mongoose.Schema.Types.ObjectId,
+    title: String,
+    amount: Number,
+    type: { type: String, enum: ["Income", "Expenses"] },
+    category: String,
+    created_at: { type: Date, default: Date.now },
+  }),
+);
+
+// BACKUP
+const Backup = mongoose.model(
+  "Backup",
+  new mongoose.Schema({
+    user_id: mongoose.Schema.Types.ObjectId,
+    title: String,
+    amount: Number,
+    type: String,
+    category: String,
+    date: String,
+    backup_month: String,
+  }),
+);
+
+/* ================= AUTH ================= */
+
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers["authorization"];
+
+  if (!authHeader) {
+    return res.status(401).send({ error: "Missing JWT Token" });
+  }
+
+  const jwtToken = authHeader.split(" ")[1];
+
+  jwt.verify(jwtToken, "MY_SECRET_KEY", (error, payload) => {
+    if (error) {
+      return res.status(401).send({ error: "Invalid JWT Token" });
+    }
+    req.user = payload;
+    next();
+  });
+};
+
+/* ================= AUTH APIs ================= */
+
+app.post("/login", async (req, res) => {
+  const { username, password } = req.body;
+
+  const dbUser = await User.findOne({ username });
+
+  if (!dbUser) {
+    return res.status(400).json({ errorMessage: "Invalid user" });
+  }
+
+  const isPasswordMatched = await bcrypt.compare(password, dbUser.password);
+
+  if (isPasswordMatched) {
+    const jwtToken = jwt.sign(
+      { id: dbUser._id, username: dbUser.username },
+      "MY_SECRET_KEY",
+    );
+
+    res.send({ jwtToken });
+  } else {
+    res.status(400).json({ errorMessage: "Invalid password" });
+  }
+
+  console.log("JWT User:", request.user);
 });
 
-app.get("/", authenticateToken, async (request, response) => {
-  const username = request.user.username;
+app.post("/register", async (req, res) => {
+  const { name, username, gender, email, password } = req.body;
 
-  const getUserQuery = `SELECT id FROM users WHERE username = ?`;
-  const user = await db.get(getUserQuery, [username]);
+  const existingUser = await User.findOne({ username });
 
-  const incomeQuery = `
-  SELECT IFNULL(SUM(amount), 0) AS income
-  FROM transactions
-  WHERE user_id = ? AND type = 'Income';
-  `;
+  if (existingUser) {
+    return res.status(400).json({ message: "User already exists" });
+  }
 
-  const incomeResult = await db.get(incomeQuery, [user.id]);
-  const income = incomeResult.income;
+  const hashedPassword = await bcrypt.hash(password, 10);
 
-  const expensesQuery = `
-  SELECT IFNULL(SUM(amount), 0) AS expenses
-  FROM transactions
-  WHERE user_id = ? AND type = 'Expenses';`;
+  await User.create({
+    name,
+    username,
+    gender,
+    email,
+    password: hashedPassword,
+  });
 
-  const expensesResult = await db.get(expensesQuery, [user.id]);
-  const expenses = expensesResult.expenses;
+  res.json({ message: "User created successfully" });
+});
 
-  const balance = income - expenses;
+/* ================= USER ================= */
 
-  response.json({
+app.get("/profile", authenticateToken, async (req, res) => {
+  const user = await User.findOne(
+    { username: req.user.username },
+    { password: 0 },
+  );
+
+  res.send(user);
+});
+
+/* ================= TRANSACTIONS ================= */
+
+app.post("/", authenticateToken, async (req, res) => {
+  const { title, amount, type, category } = req.body;
+
+  await Transaction.create({
+    user_id: req.user.id,
+    title,
+    amount,
+    type,
+    category,
+  });
+
+  res.send({ message: "Transaction added successfully" });
+});
+
+app.get("/", authenticateToken, async (req, res) => {
+  const transactions = await Transaction.find({ user_id: req.user.id });
+
+  let income = 0;
+  let expenses = 0;
+
+  transactions.forEach((t) => {
+    if (t.type === "Income") income += t.amount;
+    else expenses += t.amount;
+  });
+
+  res.send({
     income,
     expenses,
-    balance,
+    balance: income - expenses,
   });
 });
 
-app.get("/transactions", authenticateToken, async (request, response) => {
-  try {
-     const username = request.user.username;
-
-    const userQuery = `SELECT id FROM users WHERE username = ?`;
-    const user = await db.get(userQuery, [username]);
-
-    const userTransactionDetailsQuery = `
-      SELECT * FROM transactions WHERE user_id = ?;
-    `;
-
-    const transactions = await db.all(userTransactionDetailsQuery, [user.id]);
-
-    response.json({ transactions });
-  } catch (error) {
-    console.error("Error fetching transactions:", error);
-    response.status(500).json({ error: "Internal Server Error" });
-  }
+app.get("/transactions", authenticateToken, async (req, res) => {
+  const transactions = await Transaction.find({ user_id: req.user.id });
+  res.send({ transactions });
 });
+
+/* ================= ANALYTICS ================= */
 
 app.get("/analytics", authenticateToken, async (req, res) => {
-  const userId = req.user.id;
+  const data = await Transaction.aggregate([
+    {
+      $match: {
+        user_id: new mongoose.Types.ObjectId(req.user.id),
+        type: "Expenses",
+      },
+    },
+    {
+      $group: {
+        _id: "$category",
+        total: { $sum: "$amount" },
+      },
+    },
+  ]);
 
-  const query = `
-    SELECT category, SUM(amount) AS total
-    FROM transactions
-    WHERE user_id = ? AND type='Expenses'
-    GROUP BY category
-  `;
-
-  const data = await db.all(query, [userId]);
-
-  res.send(data);
+  res.send(
+    data.map((d) => ({
+      category: d._id,
+      total: d.total,
+    })),
+  );
 });
 
+/* ================= RESET ================= */
+
 app.post("/reset-month", authenticateToken, async (req, res) => {
-  try {
+  const currentMonth = new Date().toISOString().slice(0, 7);
 
-    const currentMonth = new Date().toISOString().slice(0,7); 
-    // example → 2026-06
+  const transactions = await Transaction.find({ user_id: req.user.id });
 
-    // 1️⃣ Move data to backup table
-    await db.run(`
-      INSERT INTO transactions_backup 
-      (id,title,amount,type,category,date,backup_month)
-      SELECT id,title,amount,type,category,created_at,'${currentMonth}'
-      FROM transactions
-    `)
+  const backupData = transactions.map((t) => ({
+    user_id: req.user.id,
+    title: t.title,
+    amount: t.amount,
+    type: t.type,
+    category: t.category,
+    date: t.created_at,
+    backup_month: currentMonth,
+  }));
 
-    // 2️⃣ Delete current transactions
-    await db.run(`DELETE FROM transactions`)
+  await Backup.insertMany(backupData);
+  await Transaction.deleteMany({ user_id: req.user.id });
 
-    res.send({message:"Monthly reset completed"})
-    
-  } catch (error) {
-    res.status(500).send({error:error.message})
-  }
-})
+  res.send({ message: "Monthly reset completed" });
+});
+
+/* ================= MONTHLY ================= */
 
 app.get("/monthly-summary", authenticateToken, async (req, res) => {
+  // console.log("✅ API HIT /monthly-summary");
   try {
-    const data = await db.all(`
-      SELECT 
-        backup_month,
-        SUM(CASE WHEN type='Expenses' THEN amount ELSE 0 END) as expenses,
-        SUM(CASE WHEN type='Income' THEN amount ELSE 0 END) as income
-      FROM transactions_backup
-      GROUP BY backup_month
-      ORDER BY backup_month DESC
-    `);
+    const data = await Backup.aggregate([
+      { $match: { user_id: new mongoose.Types.ObjectId(req.user.id) } },
+      {
+        $group: {
+          _id: "$backup_month",
+          income: {
+            $sum: {
+              $cond: [{ $eq: ["$type", "Income"] }, "$amount", 0],
+            },
+          },
+          expenses: {
+            $sum: {
+              $cond: [{ $eq: ["$type", "Expenses"] }, "$amount", 0],
+            },
+          },
+        },
+      },
+      { $sort: { _id: -1 } },
+    ]);
+    // await Backup.updateMany(
+    //   {},
+    //   {
+    //     $set: {
+    //       user_id: new mongoose.Types.ObjectId("69f496a146c04fcbbb6b0579"),
+    //     },
+    //   },
+    // );
 
-    const result = data.map(each => ({
-      month: each.backup_month,
-      expenses: each.expenses,
-      savings: each.income - each.expenses
-    }));
+    // const one = await Backup.findOne();
 
-    res.send(result);
+    // console.log("DB user_id:", one.user_id);
+    // console.log("DB user_id type:", typeof one.user_id);
 
+    // console.log("REQ user_id:", req.user.id);
+    // console.log("REQ user_id type:", typeof req.user.id);
+
+    // const docs = await Backup.find().limit(2);
+    // console.log(docs);
+
+    res.send(
+      data.map((d) => ({
+        month: d._id,
+        expenses: d.expenses,
+        savings: d.income - d.expenses,
+      })),
+    );
+    // console.log("Monthly Data:", data);
   } catch (error) {
+    console.log(error);
     res.status(500).send({ error: error.message });
   }
 });
 
 app.get("/monthly-details/:month", authenticateToken, async (req, res) => {
-  const { month } = req.params;
+  const data = await Backup.find({
+    user_id: req.user.id,
+    backup_month: req.params.month,
+  });
 
-  const data = await db.all(`
-    SELECT * FROM transactions_backup
-    WHERE backup_month = ?
-  `, [month]);
+  console.log(data)
 
   res.send({ transactions: data });
 });
 
+/* ================= EXPORT ================= */
+
 app.get("/export-month/:month", authenticateToken, async (req, res) => {
-  const { month } = req.params;
+  const data = await Backup.find({
+    user_id: req.user.id,
+    backup_month: req.params.month,
+  });
 
-  const data = await db.all(`
-    SELECT * FROM transactions_backup
-    WHERE backup_month = ?
-  `, [month]);
 
-  const ExcelJS = require("exceljs");
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet("Monthly Report");
 
@@ -259,33 +327,28 @@ app.get("/export-month/:month", authenticateToken, async (req, res) => {
     { header: "Date", key: "date" },
   ];
 
-  data.forEach(row => sheet.addRow(row));
+  data.forEach((row) => sheet.addRow(row));
 
   res.setHeader(
     "Content-Disposition",
-    `attachment; filename=${month}.xlsx`
+    `attachment; filename=${req.params.month}.xlsx`,
   );
 
   await workbook.xlsx.write(res);
   res.end();
 });
 
+/* ================= DELETE ================= */
+
 app.delete("/transactions/:id", authenticateToken, async (req, res) => {
-  const { id } = req.params
-  const userId = req.user.id
+  const result = await Transaction.deleteOne({
+    _id: req.params.id,
+    user_id: req.user.id,
+  });
 
-  const deleteQuery = `
-    DELETE FROM transactions
-    WHERE id = ? AND user_id = ?
-  `
-
-  const result = await db.run(deleteQuery, [id, userId])
-
-  if (result.changes === 0) {
-    res.status(404).send({ error: "Transaction not found" })
+  if (result.deletedCount === 0) {
+    res.status(404).send({ error: "Transaction not found" });
   } else {
-    res.send({ message: "Transaction deleted successfully" })
+    res.send({ message: "Transaction deleted successfully" });
   }
-})
-
-module.exports = app;
+});
