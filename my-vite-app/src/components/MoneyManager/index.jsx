@@ -159,7 +159,7 @@ class MoneyManager extends Component {
 
     try {
       const jwtToken = Cookies.get("jwt_token");
-      const url = `http://localhost:3000/`;
+      const url = `https://money-manager-wmon.onrender.com/`;
       const options = {
         method: "POST",
         headers: {
@@ -251,7 +251,7 @@ class MoneyManager extends Component {
     try {
       const jwtToken = Cookies.get("jwt_token");
 
-      const response = await fetch("http://localhost:3000/reset-month", {
+      const response = await fetch("https://money-manager-wmon.onrender.com/reset-month", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${jwtToken}`,
