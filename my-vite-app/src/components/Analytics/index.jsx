@@ -57,7 +57,7 @@ const Analytics = () => {
   const fetchAnalytics = async () => {
     try {
       const jwtToken = Cookies.get("jwt_token");
-      const url = "http://localhost:3000/";
+      const url = "https://money-manager-wmon.onrender.com/";
 
       // now use user id
       const response = await fetch(url, {
@@ -83,7 +83,7 @@ const Analytics = () => {
   };
 
   const analyticsData = async () => {
-    const url = "http://localhost:3000/analytics";
+    const url = "https://money-manager-wmon.onrender.com/analytics";
     const jwtToken = Cookies.get("jwt_token");
     try {
       const options = {
@@ -113,7 +113,7 @@ const Analytics = () => {
     const jwtToken = Cookies.get("jwt_token");
 
     const response = await fetch(
-      `http://localhost:3000/monthly-details/${month}`,
+      `https://money-manager-wmon.onrender.com/monthly-details/${month}`,
       {
         headers: {
           Authorization: `Bearer ${jwtToken}`,
@@ -123,13 +123,14 @@ const Analytics = () => {
 
     const data = await response.json();
     setMonthDetails(data.transactions);
+    // console.log(data)
   };
 
   const downloadMonth = async (month) => {
     const jwtToken = Cookies.get("jwt_token");
     try {
       const response = await fetch(
-        `http://localhost:3000/export-month/${month}`,
+        `https://money-manager-wmon.onrender.com/export-month/${month}`,
         {
           headers: {
             Authorization: `Bearer ${jwtToken}`,
@@ -158,7 +159,7 @@ const Analytics = () => {
   };
 
   const fetchDate = async () => {
-    const url = "http://localhost:3000/monthly-summary";
+    const url = "https://money-manager-wmon.onrender.com/monthly-summary";
     const jwtToken = Cookies.get("jwt_token");
 
     const options = {
@@ -171,7 +172,9 @@ const Analytics = () => {
     const response = await fetch(url, options);
     const data = await response.json();
     setMontlyData(data);
+    // console.log("Monthly API Response", data)
   };
+
 
   return (
     <div className="analytics-container">
@@ -239,7 +242,7 @@ const Analytics = () => {
               </div>
               <div className="modal-body">
                 {monthDetails.map((item) => (
-                  <div key={item.id} className="transaction-row">
+                  <div key={item._id} className="transaction-row">
                     <span className="title">{item.title}</span>
                     <span
                       className="amount"

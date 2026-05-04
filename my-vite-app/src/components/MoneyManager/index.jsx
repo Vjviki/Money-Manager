@@ -39,7 +39,7 @@ class MoneyManager extends Component {
   fetchUserData = async () => {
     // 1️⃣ Fetch profile
     try {
-      const url = "http://localhost:3000/profile";
+      const url = "https://money-manager-wmon.onrender.com/profile";
       const jwtToken = Cookies.get("jwt_token");
 
       const options = {
@@ -61,7 +61,7 @@ class MoneyManager extends Component {
 
       // 2️⃣ Fetch transaction summary (income/expenses/balance)
 
-      const userUrl = "http://localhost:3000/";
+      const userUrl = "https://money-manager-wmon.onrender.com/";
       const userResponse = await fetch(userUrl, {
         method: "GET",
         headers: {
@@ -74,7 +74,7 @@ class MoneyManager extends Component {
 
       // 3️⃣ Fetch transaction list
 
-      const urlTransactions = "http://localhost:3000/transactions";
+      const urlTransactions = "https://money-manager-wmon.onrender.com/transactions";
       const optionsTrans = {
         method: "GET",
         headers: {
@@ -84,18 +84,20 @@ class MoneyManager extends Component {
 
       const responseTrans = await fetch(urlTransactions, optionsTrans);
       const transactionsData = await responseTrans.json();
+      console.log("History:", transactionsData)
 
       this.setState({ transactionsList: transactionsData.transactions });
     } catch (error) {
       console.error("Error fetching user data:", error);
     }
+
   };
 
   deleteTransaction = async (id) => {
     try {
       const jwtToken = Cookies.get("jwt_token");
 
-      const url = `http://localhost:3000/transactions/${id}`;
+      const url = `https://money-manager-wmon.onrender.com/transactions/${id}`;
 
       const options = {
         method: "DELETE",
@@ -109,7 +111,7 @@ class MoneyManager extends Component {
       if (response.ok) {
         const { transactionsList } = this.state;
 
-        const updatedList = transactionsList.filter((each) => each.id !== id);
+        const updatedList = transactionsList.filter((each) => each._id !== id);
 
         this.setState({ transactionsList: updatedList });
 
@@ -454,7 +456,7 @@ class MoneyManager extends Component {
                     </li>
                     {this.getFilteredTransactions().map((eachTransaction) => (
                       <TransactionItem
-                        key={eachTransaction.id}
+                        key={eachTransaction._id}
                         transactionDetails={eachTransaction}
                         deleteTransaction={this.deleteTransaction}
                       />

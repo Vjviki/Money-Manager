@@ -31,7 +31,7 @@ const MoneyRegister = () => {
   const signInForm = async (event) => {
     event.preventDefault();
 
-    const url = "http://localhost:3000/register";
+    const url = "https://money-manager-wmon.onrender.com/register";
     const options = {
       method: "POST",
       headers: {

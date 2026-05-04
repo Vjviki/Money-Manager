@@ -2,10 +2,10 @@ import "./index.css";
 
 const TransactionItem = (props) => {
   const { transactionDetails, deleteTransaction } = props;
-  const { id, title, amount, type, created_at, category } = transactionDetails;
+  const { _id, title, amount, type, created_at, category } = transactionDetails;
 
   const onDeleteTransaction = () => {
-    deleteTransaction(id);
+    deleteTransaction(_id);
   };
 
   return (

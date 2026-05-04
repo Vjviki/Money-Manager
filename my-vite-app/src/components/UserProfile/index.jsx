@@ -11,7 +11,7 @@ const UserProfile = () => {
 
   const userProfileDetails = async () => {
     try {
-      const url = "http://localhost:3000/profile";
+      const url = "https://money-manager-wmon.onrender.com/profile";
       const jwtToken = Cookies.get("jwt_token");
       const options = {
         method: "GET",
