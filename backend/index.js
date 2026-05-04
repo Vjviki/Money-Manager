@@ -7,7 +7,7 @@ const jwt = require("jsonwebtoken");
 const ExcelJS = require("exceljs");
 
 const app = express();
-app.use(cors());
+app.use(cors({ origin: "*" }));
 app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
@@ -302,7 +302,7 @@ app.get("/monthly-details/:month", authenticateToken, async (req, res) => {
     backup_month: req.params.month,
   });
 
-  console.log(data)
+  console.log(data);
 
   res.send({ transactions: data });
 });
@@ -314,7 +314,6 @@ app.get("/export-month/:month", authenticateToken, async (req, res) => {
     user_id: req.user.id,
     backup_month: req.params.month,
   });
-
 
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet("Monthly Report");
