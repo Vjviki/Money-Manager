@@ -30,6 +30,7 @@ class MoneyManager extends Component {
     userTransaction: {},
     filterType: "ALL",
     filterMonth: "",
+    loading: true,
   };
 
   componentDidMount() {
@@ -39,6 +40,7 @@ class MoneyManager extends Component {
   fetchUserData = async () => {
     // 1️⃣ Fetch profile
     try {
+      this.setState({ loading: true });
       const url = "https://money-manager-wmon.onrender.com/profile";
       const jwtToken = Cookies.get("jwt_token");
 
@@ -74,7 +76,8 @@ class MoneyManager extends Component {
 
       // 3️⃣ Fetch transaction list
 
-      const urlTransactions = "https://money-manager-wmon.onrender.com/transactions";
+      const urlTransactions =
+        "https://money-manager-wmon.onrender.com/transactions";
       const optionsTrans = {
         method: "GET",
         headers: {
@@ -84,13 +87,14 @@ class MoneyManager extends Component {
 
       const responseTrans = await fetch(urlTransactions, optionsTrans);
       const transactionsData = await responseTrans.json();
-      console.log("History:", transactionsData)
+      console.log("History:", transactionsData);
 
       this.setState({ transactionsList: transactionsData.transactions });
     } catch (error) {
       console.error("Error fetching user data:", error);
+    } finally {
+      this.setState({ loading: false });
     }
-
   };
 
   deleteTransaction = async (id) => {
@@ -150,7 +154,6 @@ class MoneyManager extends Component {
       return;
     }
 
-
     const finalCategory = category === "Custom" ? customCategory : category;
 
     const typeOption = transactionTypeOptions.find(
@@ -176,20 +179,20 @@ class MoneyManager extends Component {
       };
 
       const response = await fetch(url, options);
-      if(response.ok){
-        await this.fetchUserData
+      if (response.ok) {
+        await this.fetchUserData;
 
         this.setState({
-        titleInput: "",
-        amountInput: "",
-        dateInput: "",
-        category: "Food",
-        customCategory: "",
-        optionId: transactionTypeOptions[0].optionId,
-      });
-    } else {
-      console.log("Failed to add transaction");
-    }
+          titleInput: "",
+          amountInput: "",
+          dateInput: "",
+          category: "Food",
+          customCategory: "",
+          optionId: transactionTypeOptions[0].optionId,
+        });
+      } else {
+        console.log("Failed to add transaction");
+      }
     } catch (error) {
       console.error("Error adding transaction:", error);
     }
@@ -251,12 +254,15 @@ class MoneyManager extends Component {
     try {
       const jwtToken = Cookies.get("jwt_token");
 
-      const response = await fetch("https://money-manager-wmon.onrender.com/reset-month", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${jwtToken}`,
+      const response = await fetch(
+        "https://money-manager-wmon.onrender.com/reset-month",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${jwtToken}`,
+          },
         },
-      });
+      );
 
       if (response.ok) {
         alert("Month reset completed");
@@ -320,6 +326,7 @@ class MoneyManager extends Component {
       customCategory,
       profileData,
       userTransaction,
+      loading,
     } = this.state;
     const balanceAmount = userTransaction.balance;
     const incomeAmount = userTransaction.income;
@@ -339,6 +346,7 @@ class MoneyManager extends Component {
               balanceAmount={balanceAmount}
               incomeAmount={incomeAmount}
               expensesAmount={expensesAmount}
+              loading={loading}
             />
             <div className="transaction-details">
               <form
@@ -454,13 +462,19 @@ class MoneyManager extends Component {
                       <p className="table-header-cell">Type</p>
                       <p className="table-header-cell">Date</p>
                     </li>
-                    {this.getFilteredTransactions().map((eachTransaction) => (
-                      <TransactionItem
-                        key={eachTransaction._id}
-                        transactionDetails={eachTransaction}
-                        deleteTransaction={this.deleteTransaction}
-                      />
-                    ))}
+                    {loading ? (
+                      <div className="loader-container">
+                        <div className="spinner"></div>
+                      </div>
+                    ) : (
+                      this.getFilteredTransactions().map((eachTransaction) => (
+                        <TransactionItem
+                          key={eachTransaction._id}
+                          transactionDetails={eachTransaction}
+                          deleteTransaction={this.deleteTransaction}
+                        />
+                      ))
+                    )}
                   </ul>
                 </div>
               </div>

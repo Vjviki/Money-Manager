@@ -1,7 +1,7 @@
-import './index.css'
+import "./index.css";
 
-const MoneyDetails = props => {
-  const {balanceAmount, incomeAmount, expensesAmount} = props
+const MoneyDetails = (props) => {
+  const { balanceAmount, incomeAmount, expensesAmount, loading } = props;
 
   return (
     <div className="money-details-container">
@@ -13,9 +13,15 @@ const MoneyDetails = props => {
         />
         <div>
           <p className="details-text">Your Balance</p>
-          <p className="details-money" data-testid="balanceAmount">
-            Rs {balanceAmount}
-          </p>
+          {loading ? (
+            <div className="loader-container-details">
+              <div className="spinner-details"></div>
+            </div>
+          ) : (
+            <p className="details-money" data-testid="balanceAmount">
+              Rs {balanceAmount}
+            </p>
+          )}
         </div>
       </div>
       <div className="income-container">
@@ -26,9 +32,15 @@ const MoneyDetails = props => {
         />
         <div>
           <p className="details-text">Your Income</p>
-          <p className="details-money" data-testid="incomeAmount">
-            Rs {incomeAmount}
-          </p>
+          {loading ? (
+            <div className="loader-container-details">
+              <div className="spinner-details"></div>
+            </div>
+          ) : (
+            <p className="details-money" data-testid="incomeAmount">
+              Rs {incomeAmount}
+            </p>
+          )}
         </div>
       </div>
       <div className="expenses-container">
@@ -39,13 +51,19 @@ const MoneyDetails = props => {
         />
         <div>
           <p className="details-text">Your Expenses</p>
-          <p className="details-money" data-testid="expensesAmount">
-            Rs {expensesAmount}
-          </p>
+          {loading ? (
+            <div className="loader-container-details">
+              <div className="spinner-details"></div>
+            </div>
+          ) : (
+            <p className="details-money" data-testid="expensesAmount">
+              Rs {expensesAmount}
+            </p>
+          )}
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default MoneyDetails
+export default MoneyDetails;
