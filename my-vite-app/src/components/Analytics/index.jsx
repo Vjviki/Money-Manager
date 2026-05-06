@@ -14,6 +14,7 @@ import {
 } from "recharts";
 
 import "./index.css";
+import { FaS } from "react-icons/fa6";
 
 const COLORS = [
   "#4f46e5",
@@ -32,6 +33,9 @@ const Analytics = () => {
   const [monthDetails, setMonthDetails] = useState([]);
   const [monthlyData, setMontlyData] = useState([]);
   const [error, setError] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const hasData = categoryData && categoryData.length > 0;
 
   const categoryTotals = monthDetails
     .filter((item) => item.type === "Expenses")
@@ -110,19 +114,26 @@ const Analytics = () => {
   const openDetails = async (month) => {
     setSelectedMonth(month);
 
-    const jwtToken = Cookies.get("jwt_token");
+    try {
+      setLoading(true);
+      const jwtToken = Cookies.get("jwt_token");
 
-    const response = await fetch(
-      `https://money-manager-wmon.onrender.com/monthly-details/${month}`,
-      {
-        headers: {
-          Authorization: `Bearer ${jwtToken}`,
+      const response = await fetch(
+        `https://money-manager-wmon.onrender.com/monthly-details/${month}`,
+        {
+          headers: {
+            Authorization: `Bearer ${jwtToken}`,
+          },
         },
-      },
-    );
+      );
 
-    const data = await response.json();
-    setMonthDetails(data.transactions);
+      const data = await response.json();
+      setMonthDetails(data.transactions);
+    } catch (error) {
+      console.log("Month-Details:", error);
+    } finally {
+      setLoading(false);
+    }
     // console.log(data)
   };
 
@@ -159,22 +170,28 @@ const Analytics = () => {
   };
 
   const fetchDate = async () => {
-    const url = "https://money-manager-wmon.onrender.com/monthly-summary";
-    const jwtToken = Cookies.get("jwt_token");
+    try {
+      setLoading(true);
+      const url = "https://money-manager-wmon.onrender.com/monthly-summary";
+      const jwtToken = Cookies.get("jwt_token");
 
-    const options = {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${jwtToken}`,
-      },
-    };
+      const options = {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${jwtToken}`,
+        },
+      };
 
-    const response = await fetch(url, options);
-    const data = await response.json();
-    setMontlyData(data);
+      const response = await fetch(url, options);
+      const data = await response.json();
+      setMontlyData(data);
+    } catch (error) {
+      console.log("monthly-summary:", error);
+    } finally {
+      setLoading(false);
+    }
     // console.log("Monthly API Response", data)
   };
-
 
   return (
     <div className="analytics-container">
@@ -196,70 +213,94 @@ const Analytics = () => {
             </ResponsiveContainer>
           </div>
           <div className="chart-card">
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart width={400} height={300}>
-                <Pie
-                  data={categoryData}
-                  dataKey="total"
-                  nameKey="category"
-                  outerRadius="80%"
-                  label
-                >
-                  {categoryData.map((entry, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={COLORS[index % COLORS.length]}
-                    />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
+            {hasData ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart width={400} height={300}>
+                  <Pie
+                    data={categoryData}
+                    dataKey="total"
+                    nameKey="category"
+                    outerRadius="80%"
+                    label
+                  >
+                    {categoryData.map((entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={COLORS[index % COLORS.length]}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="empty-chart">
+                <p>📊 No expense data available</p>
+                <p>Add some expenses to see insights</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
       <div className="history-card">
         <h2 className="section-title">Past Transactions</h2>
-        {monthlyData.map((item) => (
-          <div className="month-card" key={item.month}>
-            <h3>{item.month}</h3>
-            <p>Expenses: ₹{item.expenses}</p>
-            <p>Savings: ₹{item.savings}</p>
-
-            <button
-              className="view-btn"
-              onClick={() => openDetails(item.month)}
-            >
-              📊 View Details
-            </button>
+        {loading ? (
+          <div className="loader-container">
+            <div className="spinner"></div>
           </div>
-        ))}
+        ) : (
+          monthlyData.map((item) => (
+            <div className="month-card" key={item.month}>
+              <h3>{item.month}</h3>
+              <p>Expenses: ₹{item.expenses}</p>
+              <p>Savings: ₹{item.savings}</p>
+
+              <button
+                className="view-btn"
+                onClick={() => openDetails(item.month)}
+              >
+                📊 View Details
+              </button>
+            </div>
+          ))
+        )}
+
         {selectedMonth && (
           <div className="modal">
             <div className="modal-content">
               <div className="modal-header">
                 <h3>📅 {selectedMonth}</h3>
               </div>
-              <div className="modal-body">
-                {monthDetails.map((item) => (
-                  <div key={item._id} className="transaction-row">
-                    <span className="title">{item.title}</span>
-                    <span
-                      className="amount"
-                      style={{
-                        color: item.type === "Income" ? "green" : "red",
-                      }}
-                    >
-                      ₹{item.amount}
-                    </span>
-                    <span className="date">{item.date}</span>
-                  </div>
-                ))}
-              </div>
+              {loading ? (
+                <div className="loader-container">
+                  <div className="spinner"></div>
+                </div>
+              ) : (
+                <div className="modal-body">
+                  {monthDetails.map((item) => (
+                    <div key={item._id} className="transaction-row">
+                      <span className="title">{item.title}</span>
+                      <span
+                        className="amount"
+                        style={{
+                          color: item.type === "Income" ? "green" : "red",
+                        }}
+                      >
+                        ₹{item.amount}
+                      </span>
+                      <span className="date">{item.date}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <div className="category-summary">
                 <h3>💸 Expense by Category</h3>
-
-                {categoryArray.length === 0 ? (
+                {loading ? (
+                  <div className="loader-container">
+                    <div className="spinner"></div>
+                  </div>
+                ) : categoryArray.length === 0 ? (
                   <p>No expense data</p>
                 ) : (
                   categoryArray.map(([category, total]) => (

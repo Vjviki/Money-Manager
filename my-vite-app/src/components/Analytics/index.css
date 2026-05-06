@@ -69,6 +69,16 @@
   }
 }
 
+.empty-chart {
+  height: 300px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: #6b7280;
+  font-size: 14px;
+}
+
 .history-card {
   width: 100%;
   max-width: 1100px;
