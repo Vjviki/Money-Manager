@@ -14,7 +14,6 @@ import {
 } from "recharts";
 
 import "./index.css";
-import { FaS } from "react-icons/fa6";
 
 const COLORS = [
   "#4f46e5",
