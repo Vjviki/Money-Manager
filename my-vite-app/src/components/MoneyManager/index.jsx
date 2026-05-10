@@ -180,7 +180,7 @@ class MoneyManager extends Component {
 
       const response = await fetch(url, options);
       if (response.ok) {
-        await this.fetchUserData;
+        await this.fetchUserData();
 
         this.setState({
           titleInput: "",
@@ -240,6 +240,7 @@ class MoneyManager extends Component {
         !filterMonth || each.created_at?.startsWith(filterMonth);
       return typeMatch && monthMatch;
     });
+
   };
 
   resetMonth = async () => {

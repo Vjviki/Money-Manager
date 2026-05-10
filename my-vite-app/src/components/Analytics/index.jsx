@@ -15,6 +15,7 @@ import {
 
 import "./index.css";
 
+
 const COLORS = [
   "#4f46e5",
   "#22c55e",
