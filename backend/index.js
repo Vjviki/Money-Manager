@@ -114,7 +114,7 @@ app.post("/login", async (req, res) => {
     res.status(400).json({ errorMessage: "Invalid password" });
   }
 
-  console.log("JWT User:", request.user);
+  console.log("JWT User:", req.user);
 });
 
 app.post("/register", async (req, res) => {
@@ -153,7 +153,7 @@ app.get("/profile", authenticateToken, async (req, res) => {
 /* ================= TRANSACTIONS ================= */
 
 app.post("/", authenticateToken, async (req, res) => {
-  const { title, amount, type, category } = req.body;
+  const { title, amount, type, category, date } = req.body;
 
   await Transaction.create({
     user_id: req.user.id,
@@ -161,6 +161,7 @@ app.post("/", authenticateToken, async (req, res) => {
     amount,
     type,
     category,
+    date,
   });
 
   res.send({ message: "Transaction added successfully" });
