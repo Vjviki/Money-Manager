@@ -163,7 +163,7 @@ const MoneyManager = () => {
           amount: parseInt(amountInput),
           type: typeOption.displayText,
           category: finalCategory,
-          date: dateInput,
+          created_at: dateInput,
         }),
       };
 
@@ -177,7 +177,7 @@ const MoneyManager = () => {
           setOptionId(transactionTypeOptions[0].optionId));
 
         await fetchUserData();
-        toast.success("Transaction added!")
+        toast.success("Transaction added!");
       } else {
         toast.error("Failed to add transaction");
       }
@@ -185,6 +185,8 @@ const MoneyManager = () => {
       console.error("Error adding transaction:", error);
     }
   };
+
+ console.log("Date:",dateInput)
 
   const getFilteredTransactions = () => {
     return transactionsList.filter((each) => {
@@ -195,6 +197,17 @@ const MoneyManager = () => {
       return typeMatch && monthMatch;
     });
   };
+
+  const ITEMS_PER_PAGE = 10;
+  const [page, setPage] = useState(1);
+  const paginated = getFilteredTransactions().slice(
+    (page - 1) * ITEMS_PER_PAGE,
+    page * ITEMS_PER_PAGE,
+  );
+
+  const totalTransactions = getFilteredTransactions().length;
+
+  const totalPages = Math.ceil(totalTransactions / ITEMS_PER_PAGE);
 
   const resetMonth = async () => {
     const confirmReset = window.confirm(
@@ -417,7 +430,7 @@ const MoneyManager = () => {
                       <SkeletonCard />
                     </>
                   ) : (
-                    getFilteredTransactions().map((eachTransaction) => (
+                    paginated.map((eachTransaction) => (
                       <TransactionItem
                         key={eachTransaction._id}
                         transactionDetails={eachTransaction}
@@ -426,6 +439,27 @@ const MoneyManager = () => {
                     ))
                   )}
                 </ul>
+                <div className="pagination-container">
+                  <button
+                    type="button"
+                    disabled={page === 1}
+                    onClick={() => setPage(page - 1)}
+                  >
+                    Previous
+                  </button>
+
+                  <p>
+                    Page {page} of {totalPages}
+                  </p>
+
+                  <button
+                    type="button"
+                    disabled={page === totalPages}
+                    onClick={() => setPage(page + 1)}
+                  >
+                    Next
+                  </button>
+                </div>
               </div>
             </div>
           </div>

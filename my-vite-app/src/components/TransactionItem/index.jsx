@@ -3,7 +3,6 @@ import "./index.css";
 const TransactionItem = (props) => {
   const { transactionDetails, deleteTransaction } = props;
   const { _id, title, amount, type, created_at, category } = transactionDetails;
-
   const onDeleteTransaction = () => {
     deleteTransaction(_id);
   };

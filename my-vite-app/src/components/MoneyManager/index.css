@@ -319,3 +319,25 @@
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
+
+.pagination-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.pagination-container button {
+  padding: 8px 16px;
+  border: none;
+  background: #0b69ff;
+  color: white;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.pagination-container button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
