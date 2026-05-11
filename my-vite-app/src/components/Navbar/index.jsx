@@ -15,21 +15,6 @@ const Navbar = () => {
     navigate("/login");
   };
 
-  const profileBtn = () => {
-    navigate("/profile");
-    setActiveBar("profile");
-  };
-
-  const homeBtn = () => {
-    navigate("/");
-    setActiveBar("home");
-  };
-
-  const analyticBtn = () => {
-    navigate("/analytics");
-    setActiveBar("analytics");
-  };
-
   return (
     <nav className="navbar">
       <div className="responsive-navbar-container">

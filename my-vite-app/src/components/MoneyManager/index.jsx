@@ -1,4 +1,5 @@
-import { Component } from "react";
+import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
 import Cookies from "js-cookie";
 
 import TransactionItem from "../TransactionItem";
@@ -17,30 +18,28 @@ const transactionTypeOptions = [
   },
 ];
 
-class MoneyManager extends Component {
-  state = {
-    transactionsList: [],
-    titleInput: "",
-    amountInput: "",
-    dateInput: "",
-    category: "Food",
-    customCategory: "",
-    optionId: transactionTypeOptions[0].optionId,
-    profileData: {},
-    userTransaction: {},
-    filterType: "ALL",
-    filterMonth: "",
-    loading: true,
-  };
+const MoneyManager = () => {
+  const [transactionsList, setTransactionsList] = useState([]);
+  const [titleInput, setTitleInput] = useState("");
+  const [amountInput, setAmountInput] = useState("");
+  const [dateInput, setDateInput] = useState("");
+  const [category, setCategory] = useState("Food");
+  const [customCategory, setCustomCategory] = useState("");
+  const [optionId, setOptionId] = useState(transactionTypeOptions[0].optionId);
+  const [profileData, setProfileData] = useState({});
+  const [userTransaction, setUserTransaction] = useState({});
+  const [filterType, setFilterType] = useState("ALL");
+  const [filterMonth, setFilterMonth] = useState("");
+  const [loading, setLoading] = useState(true);
 
-  componentDidMount() {
-    this.fetchUserData();
-  }
+  useEffect(() => {
+    fetchUserData();
+  }, []);
 
-  fetchUserData = async () => {
+  const fetchUserData = async () => {
     // 1️⃣ Fetch profile
     try {
-      this.setState({ loading: true });
+      setLoading(true);
       const url = "https://money-manager-wmon.onrender.com/profile";
       const jwtToken = Cookies.get("jwt_token");
 
@@ -59,7 +58,7 @@ class MoneyManager extends Component {
       }
 
       const profileData = await profileResponse.json();
-      this.setState({ profileData });
+      setProfileData(profileData);
 
       // 2️⃣ Fetch transaction summary (income/expenses/balance)
 
@@ -72,7 +71,7 @@ class MoneyManager extends Component {
       });
 
       const userData = await userResponse.json();
-      this.setState({ userTransaction: userData });
+      setUserTransaction(userData);
 
       // 3️⃣ Fetch transaction list
 
@@ -89,15 +88,15 @@ class MoneyManager extends Component {
       const transactionsData = await responseTrans.json();
       console.log("History:", transactionsData);
 
-      this.setState({ transactionsList: transactionsData.transactions });
+      setTransactionsList(transactionsData.transactions);
     } catch (error) {
       console.error("Error fetching user data:", error);
     } finally {
-      this.setState({ loading: false });
+      setLoading(false);
     }
   };
 
-  deleteTransaction = async (id) => {
+  const deleteTransaction = async (id) => {
     try {
       const jwtToken = Cookies.get("jwt_token");
 
@@ -113,14 +112,12 @@ class MoneyManager extends Component {
       const response = await fetch(url, options);
 
       if (response.ok) {
-        const { transactionsList } = this.state;
-
         const updatedList = transactionsList.filter((each) => each._id !== id);
 
-        this.setState({ transactionsList: updatedList });
+        setTransactionsList(updatedList);
 
         // refresh summary (balance, income, expenses)
-        this.fetchUserData();
+        fetchUserData();
       } else {
         console.log("Failed to delete transaction");
       }
@@ -129,28 +126,20 @@ class MoneyManager extends Component {
     }
   };
 
-  onAddTransaction = async (event) => {
+  const onAddTransaction = async (event) => {
     event.preventDefault();
-    const {
-      titleInput,
-      amountInput,
-      optionId,
-      dateInput,
-      category,
-      customCategory,
-    } = this.state;
     if (titleInput === "") {
-      alert("Please Enter Title");
+      toast.error("Please Enter a Title");
       return;
     }
 
     if (amountInput === "") {
-      alert("Please Enter Amount");
+      toast.error("Please Enter a Amount");
       return;
     }
 
     if (isNaN(amountInput)) {
-      alert("Amount must be a valid number");
+      toast.error("Amount must be a valid number");
       return;
     }
 
@@ -180,59 +169,24 @@ class MoneyManager extends Component {
 
       const response = await fetch(url, options);
       if (response.ok) {
-        await this.fetchUserData();
+        (setTitleInput(""),
+          setAmountInput(""),
+          setDateInput(""),
+          setCategory("Food"),
+          setCustomCategory(""),
+          setOptionId(transactionTypeOptions[0].optionId));
 
-        this.setState({
-          titleInput: "",
-          amountInput: "",
-          dateInput: "",
-          category: "Food",
-          customCategory: "",
-          optionId: transactionTypeOptions[0].optionId,
-        });
+        await fetchUserData();
+        toast.success("Transaction added!")
       } else {
-        console.log("Failed to add transaction");
+        toast.error("Failed to add transaction");
       }
     } catch (error) {
       console.error("Error adding transaction:", error);
     }
   };
 
-  onChangeOptionId = (event) => {
-    this.setState({ optionId: event.target.value });
-  };
-
-  onChangeAmountInput = (event) => {
-    this.setState({ amountInput: event.target.value });
-  };
-
-  onChangeDateInput = (event) => {
-    this.setState({ dateInput: event.target.value });
-  };
-
-  onChangeTitleInput = (event) => {
-    this.setState({ titleInput: event.target.value });
-  };
-
-  onChangeNewCategory = (event) => {
-    this.setState({ customCategory: event.target.value });
-  };
-
-  onChangeCategory = (event) => {
-    this.setState({ category: event.target.value });
-  };
-
-  onChangeFilterType = (event) => {
-    this.setState({ filterType: event.target.value });
-  };
-
-  onChangeFilterMonth = (event) => {
-    this.setState({ filterMonth: event.target.value });
-  };
-
-  getFilteredTransactions = () => {
-    const { transactionsList, filterType, filterMonth } = this.state;
-
+  const getFilteredTransactions = () => {
     return transactionsList.filter((each) => {
       const typeMatch = filterType === "ALL" || each.type === filterType;
 
@@ -240,10 +194,9 @@ class MoneyManager extends Component {
         !filterMonth || each.created_at?.startsWith(filterMonth);
       return typeMatch && monthMatch;
     });
-
   };
 
-  resetMonth = async () => {
+  const resetMonth = async () => {
     const confirmReset = window.confirm(
       "Are you sure you want to reset this month?",
     );
@@ -266,8 +219,8 @@ class MoneyManager extends Component {
       );
 
       if (response.ok) {
-        alert("Month reset completed");
-        this.fetchUserData();
+        toast.success("Month reset completed");
+        fetchUserData();
       }
     } catch (error) {
       console.log("Reset error:", error);
@@ -318,173 +271,168 @@ class MoneyManager extends Component {
   //   return balanceAmount;
   // };
 
-  render() {
-    const {
-      titleInput,
-      amountInput,
-      optionId,
-      category,
-      customCategory,
-      profileData,
-      userTransaction,
-      loading,
-    } = this.state;
-    const balanceAmount = userTransaction.balance;
-    const incomeAmount = userTransaction.income;
-    const expensesAmount = userTransaction.expenses;
-    return (
-      <>
-        <div className="app-container">
-          <div className="responsive-container">
-            <div className="header-container">
-              <h1 className="heading">Hi, {profileData.name}</h1>
-              <p className="header-content">
-                Welcome back to your
-                <span className="money-manager-text"> Money Manager</span>
-              </p>
-            </div>
-            <MoneyDetails
-              balanceAmount={balanceAmount}
-              incomeAmount={incomeAmount}
-              expensesAmount={expensesAmount}
-              loading={loading}
-            />
-            <div className="transaction-details">
-              <form
-                className="transaction-form"
-                onSubmit={this.onAddTransaction}
+  const SkeletonCard = () => (
+    <div className="skeleton-card">
+      <div className="skeleton-line w-40" />
+      <div className="skeleton-line w-24 large" />
+    </div>
+  );
+
+  const balanceAmount = userTransaction.balance;
+  const incomeAmount = userTransaction.income;
+  const expensesAmount = userTransaction.expenses;
+
+  return (
+    <>
+      <div className="app-container">
+        <div className="responsive-container">
+          <div className="header-container">
+            <h1 className="heading">Hi, {profileData.name}</h1>
+            <p className="header-content">
+              Welcome back to your
+              <span className="money-manager-text"> Money Manager</span>
+            </p>
+          </div>
+          <MoneyDetails
+            balanceAmount={balanceAmount}
+            incomeAmount={incomeAmount}
+            expensesAmount={expensesAmount}
+            loading={loading}
+          />
+          <div className="transaction-details">
+            <form className="transaction-form" onSubmit={onAddTransaction}>
+              <h1 className="transaction-header">Add Transaction</h1>
+              <label className="input-label" htmlFor="title">
+                TITLE
+              </label>
+              <input
+                type="text"
+                id="title"
+                value={titleInput}
+                onChange={(e) => setTitleInput(e.target.value)}
+                className="input"
+                placeholder="TITLE"
+              />
+              <label className="input-label">CATEGORY</label>
+
+              <select
+                className="input"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
               >
-                <h1 className="transaction-header">Add Transaction</h1>
-                <label className="input-label" htmlFor="title">
-                  TITLE
-                </label>
+                <option value="Food">Food</option>
+                <option value="Entertainment">Entertainment</option>
+                <option value="Medical">Medical</option>
+                <option value="Transport">Transport</option>
+                <option value="Education">Education</option>
+                <option value="Shopping">Shopping</option>
+                <option value="Salary">Salary</option>
+                <option value="Other">Other</option>
+
+                <option value="Custom">➕ Add New Category</option>
+              </select>
+
+              {category === "Custom" && (
                 <input
                   type="text"
-                  id="title"
-                  value={titleInput}
-                  onChange={this.onChangeTitleInput}
+                  placeholder="Enter new category"
                   className="input"
-                  placeholder="TITLE"
+                  value={customCategory}
+                  onChange={(e) => setCustomCategory(e.target.value)}
                 />
-                <label className="input-label">CATEGORY</label>
+              )}
 
-                <select
-                  className="input"
-                  value={category}
-                  onChange={this.onChangeCategory}
-                >
-                  <option value="Food">Food</option>
-                  <option value="Entertainment">Entertainment</option>
-                  <option value="Medical">Medical</option>
-                  <option value="Transport">Transport</option>
-                  <option value="Education">Education</option>
-                  <option value="Shopping">Shopping</option>
-                  <option value="Salary">Salary</option>
-                  <option value="Other">Other</option>
+              <label className="input-label" htmlFor="amount">
+                AMOUNT
+              </label>
+              <input
+                type="text"
+                id="amount"
+                className="input"
+                value={amountInput}
+                onChange={(e) => setAmountInput(e.target.value)}
+                placeholder="AMOUNT"
+              />
+              <label className="input-label" htmlFor="date">
+                DATE
+              </label>
+              <input
+                type="date"
+                id="date"
+                className="input"
+                value={dateInput}
+                onChange={(e) => setDateInput(e.target.value)}
+              />
+              <label className="input-label" htmlFor="select">
+                TYPE
+              </label>
+              <select
+                id="select"
+                className="input"
+                value={optionId}
+                onChange={(e) => setOptionId(e.target.value)}
+              >
+                {transactionTypeOptions.map((eachOption) => (
+                  <option key={eachOption.optionId} value={eachOption.optionId}>
+                    {eachOption.displayText}
+                  </option>
+                ))}
+              </select>
+              <button type="submit" className="button">
+                Add
+              </button>
+            </form>
+            <div className="history-transactions">
+              <h1 className="transaction-header">History</h1>
+              <div className="filter-container">
+                <div className="filter-type-month">
+                  <select onChange={(e) => setFilterType(e.target.value)}>
+                    <option value="ALL">All</option>
+                    <option value="Income">Income</option>
+                    <option value="Expenses">Expenses</option>
+                  </select>
 
-                  <option value="Custom">➕ Add New Category</option>
-                </select>
-
-                {category === "Custom" && (
                   <input
-                    type="text"
-                    placeholder="Enter new category"
-                    className="input"
-                    value={customCategory}
-                    onChange={this.onChangeNewCategory}
+                    type="month"
+                    onChange={(e) => setFilterMonth(e.target.value)}
                   />
-                )}
-
-                <label className="input-label" htmlFor="amount">
-                  AMOUNT
-                </label>
-                <input
-                  type="text"
-                  id="amount"
-                  className="input"
-                  value={amountInput}
-                  onChange={this.onChangeAmountInput}
-                  placeholder="AMOUNT"
-                />
-                <label className="input-label" htmlFor="date">
-                  DATE
-                </label>
-                <input
-                  type="date"
-                  id="date"
-                  className="input"
-                  value={this.state.dateInput}
-                  onChange={this.onChangeDateInput}
-                />
-                <label className="input-label" htmlFor="select">
-                  TYPE
-                </label>
-                <select
-                  id="select"
-                  className="input"
-                  value={optionId}
-                  onChange={this.onChangeOptionId}
-                >
-                  {transactionTypeOptions.map((eachOption) => (
-                    <option
-                      key={eachOption.optionId}
-                      value={eachOption.optionId}
-                    >
-                      {eachOption.displayText}
-                    </option>
-                  ))}
-                </select>
-                <button type="submit" className="button">
-                  Add
+                </div>
+                <button className="reset-btn" onClick={resetMonth}>
+                  Reset Month
                 </button>
-              </form>
-              <div className="history-transactions">
-                <h1 className="transaction-header">History</h1>
-                <div className="filter-container">
-                  <div className="filter-type-month">
-                    <select onChange={this.onChangeFilterType}>
-                      <option value="ALL">All</option>
-                      <option value="Income">Income</option>
-                      <option value="Expenses">Expenses</option>
-                    </select>
-
-                    <input type="month" onChange={this.onChangeFilterMonth} />
-                  </div>
-                  <button className="reset-btn" onClick={this.resetMonth}>
-                    Reset Month
-                  </button>
-                </div>
-                <div className="transactions-table-container">
-                  <ul className="transactions-table">
-                    <li className="table-header">
-                      <p className="table-header-cell">Title</p>
-                      <p className="table-header-cell">Category</p>
-                      <p className="table-header-cell">Amount</p>
-                      <p className="table-header-cell">Type</p>
-                      <p className="table-header-cell">Date</p>
-                    </li>
-                    {loading ? (
-                      <div className="loader-container">
-                        <div className="spinner"></div>
-                      </div>
-                    ) : (
-                      this.getFilteredTransactions().map((eachTransaction) => (
-                        <TransactionItem
-                          key={eachTransaction._id}
-                          transactionDetails={eachTransaction}
-                          deleteTransaction={this.deleteTransaction}
-                        />
-                      ))
-                    )}
-                  </ul>
-                </div>
+              </div>
+              <div className="transactions-table-container">
+                <ul className="transactions-table">
+                  <li className="table-header">
+                    <p className="table-header-cell">Title</p>
+                    <p className="table-header-cell">Category</p>
+                    <p className="table-header-cell">Amount</p>
+                    <p className="table-header-cell">Type</p>
+                    <p className="table-header-cell">Date</p>
+                  </li>
+                  {loading ? (
+                    <>
+                      <SkeletonCard />
+                      <SkeletonCard />
+                      <SkeletonCard />
+                    </>
+                  ) : (
+                    getFilteredTransactions().map((eachTransaction) => (
+                      <TransactionItem
+                        key={eachTransaction._id}
+                        transactionDetails={eachTransaction}
+                        deleteTransaction={deleteTransaction}
+                      />
+                    ))
+                  )}
+                </ul>
               </div>
             </div>
           </div>
         </div>
-      </>
-    );
-  }
-}
+      </div>
+    </>
+  );
+};
 
 export default MoneyManager;

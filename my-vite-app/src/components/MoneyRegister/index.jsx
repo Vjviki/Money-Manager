@@ -49,6 +49,7 @@ const MoneyRegister = () => {
         username: "",
         email: "",
         password: "",
+        gender: "",
       });
     } else {
       setMessageType("error-message");
