@@ -153,7 +153,7 @@ app.get("/profile", authenticateToken, async (req, res) => {
 /* ================= TRANSACTIONS ================= */
 
 app.post("/", authenticateToken, async (req, res) => {
-  const { title, amount, type, category, date } = req.body;
+  const { title, amount, type, category, created_at } = req.body;
 
   await Transaction.create({
     user_id: req.user.id,
@@ -161,7 +161,7 @@ app.post("/", authenticateToken, async (req, res) => {
     amount,
     type,
     category,
-    date,
+    created_at,
   });
 
   res.send({ message: "Transaction added successfully" });
