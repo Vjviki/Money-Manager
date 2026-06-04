@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import Cookies from "js-cookie";
+import { Search } from "lucide-react";
 
 import TransactionItem from "../TransactionItem";
 import MoneyDetails from "../MoneyDetails";
@@ -29,7 +30,7 @@ const MoneyManager = () => {
   const [profileData, setProfileData] = useState({});
   const [userTransaction, setUserTransaction] = useState({});
   const [filterType, setFilterType] = useState("ALL");
-  const [filterMonth, setFilterMonth] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -97,6 +98,13 @@ const MoneyManager = () => {
   };
 
   const deleteTransaction = async (id) => {
+    const confirmDelete = window.confirm(
+      "Are you sure want to delete this transaction?",
+    );
+
+    if (!confirmDelete) {
+      return;
+    }
     try {
       const jwtToken = Cookies.get("jwt_token");
 
@@ -186,15 +194,14 @@ const MoneyManager = () => {
     }
   };
 
- console.log("Date:",dateInput)
+  console.log("Data:", transactionsList);
 
   const getFilteredTransactions = () => {
     return transactionsList.filter((each) => {
       const typeMatch = filterType === "ALL" || each.type === filterType;
 
-      const monthMatch =
-        !filterMonth || each.created_at?.startsWith(filterMonth);
-      return typeMatch && monthMatch;
+      const queryMatch = !searchQuery || each.category?.startsWith(searchQuery);
+      return typeMatch && queryMatch;
     });
   };
 
@@ -405,10 +412,14 @@ const MoneyManager = () => {
                     <option value="Expenses">Expenses</option>
                   </select>
 
-                  <input
-                    type="month"
-                    onChange={(e) => setFilterMonth(e.target.value)}
-                  />
+                  <div className="search-box">
+                    <Search className="search-icon"/>
+                    <input
+                      type="search"
+                      placeholder="Search..."
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                  </div>
                 </div>
                 <button className="reset-btn" onClick={resetMonth}>
                   Reset Month
