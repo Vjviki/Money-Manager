@@ -413,7 +413,7 @@ const MoneyManager = () => {
                   </select>
 
                   <div className="search-box">
-                    <Search className="search-icon"/>
+                    <Search className="search-icon" size={18}/>
                     <input
                       type="search"
                       placeholder="Search..."
