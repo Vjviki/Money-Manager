@@ -266,7 +266,7 @@ const Analytics = () => {
         )}
 
         {selectedMonth && (
-          <div className="modal">
+          <div className= "modal">
             <div className="modal-content">
               <div className="modal-header">
                 <h3>📅 {selectedMonth}</h3>

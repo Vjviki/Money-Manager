@@ -2,22 +2,83 @@
   box-sizing: border-box;
 }
 
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
+  min-height: 100vh;
+}
+
 body {
-  font-family: 'Inter', -apple-system, sans-serif;
+  font-family:
+    "Inter",
+    -apple-system,
+    sans-serif;
   font-size: 14px;
   line-height: 1.6;
   color: var(--color-text-primary);
+  background: #f8fafc;
+}
+
+.theme-shell {
+  min-height: 100vh;
+  transition:
+    background 0.3s ease,
+    color 0.3s ease;
+}
+
+.theme-shell.light-theme {
+  --bg-color: #f8fafc;
+  --surface-color: #ffffff;
+  --surface-alt: #f8fafc;
+  --border-color: #cbd5e1;
+  --text-primary: #1e293b;
+  --text-secondary: #475569;
+  --input-bg: #ffffff;
+  --input-text: #1e293b;
+  --button-bg: #0b69ff;
+  --button-text: #ffffff;
+  --header-gradient: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.9),
+    rgba(219, 234, 254, 0.8)
+  );
+  --shadow-color: rgba(15, 23, 42, 0.08);
+  background: var(--bg-color);
+  color: var(--text-primary);
+}
+
+.theme-shell.dark-theme {
+  --bg-color: #020817;
+  --surface-color: #0f172a;
+  --surface-alt: #111827;
+  --border-color: #334155;
+  --text-primary: #e2e8f0;
+  --text-secondary: #cbd5e1;
+  --input-bg: #111827;
+  --input-text: #e2e8f0;
+  --button-bg: #3b82f6;
+  --button-text: #f8fafc;
+  --header-gradient: linear-gradient(
+    135deg,
+    rgba(15, 23, 42, 0.95),
+    rgba(30, 41, 59, 0.85)
+  );
+  --shadow-color: rgba(148, 163, 184, 0.14);
+  background: var(--bg-color);
+  color: var(--text-primary);
 }
 
 :root {
   /* Brand */
-  --color-primary: #6366f1;      /* Indigo — trust, modern */
+  --color-primary: #6366f1;
   --color-primary-dark: #4f46e5;
   --color-primary-light: #e0e7ff;
 
   /* Semantic */
-  --color-income: #10b981;       /* Emerald green */
-  --color-expense: #f43f5e;      /* Rose red */
+  --color-income: #10b981;
+  --color-expense: #f43f5e;
   --color-warning: #f59e0b;
 
   /* Neutrals */
@@ -28,7 +89,6 @@ body {
   --color-text-secondary: #64748b;
   --color-text-muted: #94a3b8;
 
-  /* Dark mode (add class="dark" to <html>) */
   --color-bg-dark: #0f172a;
   --color-surface-dark: #1e293b;
   --color-border-dark: #334155;

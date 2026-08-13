@@ -87,7 +87,6 @@ const MoneyManager = () => {
 
       const responseTrans = await fetch(urlTransactions, optionsTrans);
       const transactionsData = await responseTrans.json();
-      console.log("History:", transactionsData);
 
       setTransactionsList(transactionsData.transactions);
     } catch (error) {
@@ -194,7 +193,6 @@ const MoneyManager = () => {
     }
   };
 
-  console.log("Data:", transactionsList);
 
   const getFilteredTransactions = () => {
     return transactionsList.filter((each) => {
@@ -307,11 +305,15 @@ const MoneyManager = () => {
       <div className="app-container">
         <div className="responsive-container">
           <div className="header-container">
-            <h1 className="heading">Hi, {profileData.name}</h1>
-            <p className="header-content">
-              Welcome back to your
-              <span className="money-manager-text"> Money Manager</span>
-            </p>
+            <div className="header-top-row">
+              <div>
+                <h1 className="heading">Hi, {profileData.name}</h1>
+                <p className="header-content">
+                  Welcome back to your
+                  <span className="money-manager-text"> Money Manager</span>
+                </p>
+              </div>
+            </div>
           </div>
           <MoneyDetails
             balanceAmount={balanceAmount}
@@ -413,7 +415,7 @@ const MoneyManager = () => {
                   </select>
 
                   <div className="search-box">
-                    <Search className="search-icon" size={18}/>
+                    <Search className="search-icon" size={18} />
                     <input
                       type="search"
                       placeholder="Search..."

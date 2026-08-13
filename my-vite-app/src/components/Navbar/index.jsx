@@ -1,10 +1,10 @@
-import { Menu, X } from "lucide-react";
+import { Menu, MoonStar, SunMedium, X } from "lucide-react";
 import Cookies from "js-cookie";
 import { useState } from "react";
 import { useNavigate, NavLink } from "react-router-dom";
 import "./index.css";
 
-const Navbar = () => {
+const Navbar = ({ theme, onToggleTheme }) => {
   const [menuOpen, setMenuOpen] = useState(false);
 
   const toggleMenu = () => setMenuOpen(!menuOpen);
@@ -18,17 +18,14 @@ const Navbar = () => {
   return (
     <nav className="navbar">
       <div className="responsive-navbar-container">
-        {/* Logo */}
-        <button className="navbar-logo">
+        <button className="navbar-logo" type="button">
           <h1 className="navbar-logo-title">MM</h1>
         </button>
 
-        {/* Menu Icon (for mobile) */}
-        <button className="navbar-menu-icon" onClick={toggleMenu}>
+        <button className="navbar-menu-icon" onClick={toggleMenu} type="button">
           {menuOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
 
-        {/* Links */}
         <div className={`navbar-menu-links ${menuOpen ? "open" : ""}`}>
           <NavLink
             to="/"
@@ -54,7 +51,28 @@ const Navbar = () => {
           >
             Profile
           </NavLink>
-          <button className="navbar-logout-button" onClick={logoutBtn}>
+
+          <button
+            type="button"
+            className="theme-toggle-btn navbar-theme-btn"
+            onClick={onToggleTheme}
+            aria-label={
+              theme === "dark" ? "Switch to light mode" : "Switch to dark mode"
+            }
+          >
+            {theme === "dark" ? (
+              <SunMedium size={16} />
+            ) : (
+              <MoonStar size={16} />
+            )}
+            <span>{theme === "dark" ? "Light" : "Dark"}</span>
+          </button>
+
+          <button
+            className="navbar-logout-button"
+            onClick={logoutBtn}
+            type="button"
+          >
             Logout
           </button>
         </div>
