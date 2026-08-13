@@ -1,7 +1,14 @@
+import { useState } from "react";
+import { EyeIcon, EyeOff } from "lucide-react";
 import "./index.css";
 
 const MoneyDetails = (props) => {
   const { balanceAmount, incomeAmount, expensesAmount, loading } = props;
+  const [isHidden, setIsHidden] = useState(false);
+
+  const hideShow = () => {
+    setIsHidden((prevState) => !prevState);
+  };
 
   return (
     <div className="money-details-container">
@@ -18,9 +25,23 @@ const MoneyDetails = (props) => {
               <div className="spinner-details"></div>
             </div>
           ) : (
-            <p className="details-money" data-testid="balanceAmount">
-              Rs {balanceAmount}
-            </p>
+            <div className="amount-container">
+              <p className="details-money" data-testid="balanceAmount">
+                {isHidden ? `Rs ${balanceAmount}` : "Rs ****"}
+              </p>
+              <button
+                type="button"
+                className="hide-show-button"
+                onClick={hideShow}
+                aria-label={isHidden ? "Show Balance" : "Hide Balance"}
+              >
+                {isHidden ? (
+                  <EyeIcon className="eye-icon" />
+                ) : (
+                  <EyeOff className="eye-icon" />
+                )}
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -37,9 +58,23 @@ const MoneyDetails = (props) => {
               <div className="spinner-details"></div>
             </div>
           ) : (
-            <p className="details-money" data-testid="incomeAmount">
-              Rs {incomeAmount}
-            </p>
+            <div className="amount-container">
+              <p className="details-money" data-testid="incomeAmount">
+                {isHidden ? `Rs ${incomeAmount}` : "Rs ****"}
+              </p>
+              <button
+                type="button"
+                className="hide-show-button"
+                onClick={hideShow}
+                aria-label={isHidden ? "Show Balance" : "Hide Balance"}
+              >
+                {isHidden ? (
+                  <EyeIcon className="eye-icon" />
+                ) : (
+                  <EyeOff className="eye-icon" />
+                )}
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -56,9 +91,23 @@ const MoneyDetails = (props) => {
               <div className="spinner-details"></div>
             </div>
           ) : (
-            <p className="details-money" data-testid="expensesAmount">
-              Rs {expensesAmount}
-            </p>
+            <div className="amount-container">
+              <p className="details-money" data-testid="expensesAmount">
+                {isHidden ? `Rs ${expensesAmount}` : "Rs ****"}
+              </p>
+              <button
+                type="button"
+                className="hide-show-button"
+                onClick={hideShow}
+                aria-label={isHidden ? "Show Balance" : "Hide Balance"}
+              >
+                {isHidden ? (
+                  <EyeIcon className="eye-icon" />
+                ) : (
+                  <EyeOff className="eye-icon" />
+                )}
+              </button>
+            </div>
           )}
         </div>
       </div>

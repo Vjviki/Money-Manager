@@ -126,3 +126,17 @@
     transform: rotate(360deg);
   }
 }
+
+.amount-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.hide-show-button {
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+  margin-right: 8px;
+}
