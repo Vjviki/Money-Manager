@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import Cookies from "js-cookie";
+import {Capacitor} from "@capacitor/core";
+import { Filesystem, Directory } from "@capacitor/filesystem";
 import {
   BarChart,
   Bar,
@@ -154,15 +156,36 @@ const Analytics = () => {
       }
 
       const blob = await response.blob();
+
+      if(! Capacitor.isNativePlatform()) {
       const url = window.URL.createObjectURL(blob);
 
       const a = document.createElement("a");
       a.href = url;
       a.download = `${month}.xlsx`;
+      document.body.appendChild(a);
       a.click();
 
       a.remove();
       window.URL.revokeObjectURL(url);
+      return;
+      }
+      const arrayBuffer = await blob.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuffer);
+      let binary = "";
+      for (let i = 0; i < bytes.byteLength; i++){
+        binary += String.fromCharCode(bytes[i]);
+      }
+
+      const base64Data = btoa(binary);
+      const result = await Filesystem.writeFile({
+        path: `${month}.xlsx`,
+        data: base64Data,
+        directory: Directory.Documents,
+      });
+
+      console.log("File saved:", result.uri);
+      alert(`Excel downloaded successfully to ${month}.xlsx`);
     } catch (error) {
       console.error("Download error:", error);
       alert("Download failed. Try again.");
