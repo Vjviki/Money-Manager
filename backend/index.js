@@ -4,6 +4,7 @@ const express = require("express");
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const nodemailer = require("nodemailer");
 const ExcelJS = require("exceljs");
 
 const app = express();
@@ -11,6 +12,10 @@ app.use(cors({ origin: "*" }));
 app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
+const JWT_SECRET = process.env.JWT_SECRET || "MY_SECRET_KEY";
+const OTP_EXPIRY_MINUTES = 10;
+const OTP_RESEND_SECONDS = 60;
+const MAX_OTP_ATTEMPTS = 5;
 
 mongoose
   .connect(process.env.MONGO_URL)
@@ -64,6 +69,17 @@ const Backup = mongoose.model(
   }),
 );
 
+const PasswordReset = mongoose.model(
+  "PasswordReset",
+  new mongoose.Schema({
+    user_id: { type: mongoose.Schema.Types.ObjectId, unique: true, index: true },
+    otp_hash: String,
+    expires_at: Date,
+    requested_at: Date,
+    attempts: { type: Number, default: 0 },
+  }),
+);
+
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers["authorization"];
 
@@ -73,7 +89,7 @@ const authenticateToken = (req, res, next) => {
 
   const jwtToken = authHeader.split(" ")[1];
 
-  jwt.verify(jwtToken, "MY_SECRET_KEY", (error, payload) => {
+  jwt.verify(jwtToken, JWT_SECRET, (error, payload) => {
     if (error) {
       return res.status(401).send({ error: "Invalid JWT Token" });
     }
@@ -82,24 +98,54 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
-app.post("/login", async (req, res) => {
-  const { username, password } = req.body;
-  const dbUser = await User.findOne({ username });
+const getMailTransporter = () => {
+  const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS } = process.env;
 
-  if (!dbUser) {
-    return res.status(400).json({ errorMessage: "Invalid user" });
+  if (!SMTP_HOST || !SMTP_PORT || !SMTP_USER || !SMTP_PASS) {
+    return null;
   }
 
-  const isPasswordMatched = await bcrypt.compare(password, dbUser.password);
+  return nodemailer.createTransport({
+    host: SMTP_HOST,
+    port: Number(SMTP_PORT),
+    secure: Number(SMTP_PORT) === 465,
+    auth: {
+      user: SMTP_USER,
+      pass: SMTP_PASS,
+    },
+  });
+};
 
-  if (isPasswordMatched) {
+app.post("/login", async (req, res) => {
+  try {
+    const username = String(req.body.username || "").trim();
+    const password = String(req.body.password || "");
+
+    if (!username || !password) {
+      return res.status(400).json({ errorMessage: "Username and password are required" });
+    }
+
+    const dbUser = await User.findOne({ username });
+
+    if (!dbUser) {
+      return res.status(400).json({ errorMessage: "Invalid username or password" });
+    }
+
+    const isPasswordMatched = await bcrypt.compare(password, dbUser.password);
+
+    if (!isPasswordMatched) {
+      return res.status(400).json({ errorMessage: "Invalid username or password" });
+    }
+
     const jwtToken = jwt.sign(
       { id: dbUser._id, username: dbUser.username },
-      "MY_SECRET_KEY",
+      JWT_SECRET,
     );
+
     res.send({ jwtToken });
-  } else {
-    res.status(400).json({ errorMessage: "Invalid password" });
+  } catch (error) {
+    console.error("Login error:", error);
+    res.status(500).json({ errorMessage: "Unable to sign in right now" });
   }
 });
 
@@ -117,11 +163,137 @@ app.post("/register", async (req, res) => {
     name,
     username,
     gender,
-    email,
+    email: String(email || "").trim().toLowerCase(),
     password: hashedPassword,
   });
 
   res.json({ message: "User created successfully" });
+});
+
+app.post("/forgot-password/request", async (req, res) => {
+  try {
+    const email = String(req.body.email || "").trim().toLowerCase();
+    const transporter = getMailTransporter();
+
+    if (!email || !email.includes("@")) {
+      return res.status(400).send({ error: "Enter a valid email address" });
+    }
+
+    if (!transporter) {
+      return res.status(503).send({ error: "Password recovery email is not configured yet" });
+    }
+
+    const user = await User.findOne({ email });
+
+    // Use the same success response whether or not an account exists.
+    if (!user) {
+      return res.send({ message: "If an account exists for this email, a verification code has been sent." });
+    }
+
+    const existingReset = await PasswordReset.findOne({ user_id: user._id });
+    if (
+      existingReset?.requested_at &&
+      Date.now() - existingReset.requested_at.getTime() < OTP_RESEND_SECONDS * 1000
+    ) {
+      return res.status(429).send({ error: "Please wait a minute before requesting another code" });
+    }
+
+    const otp = String(Math.floor(100000 + Math.random() * 900000));
+    const otpHash = await bcrypt.hash(otp, 10);
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + OTP_EXPIRY_MINUTES * 60 * 1000);
+
+    await PasswordReset.findOneAndUpdate(
+      { user_id: user._id },
+      {
+        otp_hash: otpHash,
+        expires_at: expiresAt,
+        requested_at: now,
+        attempts: 0,
+      },
+      { upsert: true, new: true },
+    );
+
+    const from = process.env.MAIL_FROM || process.env.SMTP_USER;
+
+    await transporter.sendMail({
+      from,
+      to: user.email,
+      subject: "Money Manager password reset code",
+      text: `Your Money Manager verification code is ${otp}. It expires in ${OTP_EXPIRY_MINUTES} minutes. If you did not request a password reset, you can ignore this email.`,
+      html: `
+        <div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;padding:24px;color:#1e293b">
+          <h2 style="margin-bottom:8px">Money Manager</h2>
+          <p>Use this verification code to reset your password:</p>
+          <div style="font-size:30px;font-weight:800;letter-spacing:8px;padding:18px 0">${otp}</div>
+          <p>This code expires in ${OTP_EXPIRY_MINUTES} minutes.</p>
+          <p style="color:#64748b;font-size:13px">If you did not request a password reset, you can ignore this email.</p>
+        </div>
+      `,
+    });
+
+    res.send({ message: "If an account exists for this email, a verification code has been sent." });
+  } catch (error) {
+    console.error("Forgot password request error:", error);
+    res.status(500).send({ error: "Unable to send verification code right now" });
+  }
+});
+
+app.post("/forgot-password/reset", async (req, res) => {
+  try {
+    const email = String(req.body.email || "").trim().toLowerCase();
+    const otp = String(req.body.otp || "").trim();
+    const newPassword = String(req.body.newPassword || "");
+
+    if (!email || !otp || !newPassword) {
+      return res.status(400).send({ error: "Email, verification code and new password are required" });
+    }
+
+    if (!/^\d{6}$/.test(otp)) {
+      return res.status(400).send({ error: "Enter the 6-digit verification code" });
+    }
+
+    if (newPassword.length < 8) {
+      return res.status(400).send({ error: "New password must be at least 8 characters" });
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(400).send({ error: "Invalid or expired verification code" });
+    }
+
+    const reset = await PasswordReset.findOne({ user_id: user._id });
+    if (!reset || !reset.expires_at || reset.expires_at.getTime() < Date.now()) {
+      if (reset) await PasswordReset.deleteOne({ _id: reset._id });
+      return res.status(400).send({ error: "Invalid or expired verification code" });
+    }
+
+    if (reset.attempts >= MAX_OTP_ATTEMPTS) {
+      await PasswordReset.deleteOne({ _id: reset._id });
+      return res.status(429).send({ error: "Too many incorrect attempts. Request a new code." });
+    }
+
+    const otpMatches = await bcrypt.compare(otp, reset.otp_hash);
+    if (!otpMatches) {
+      reset.attempts += 1;
+      await reset.save();
+      return res.status(400).send({ error: "Invalid or expired verification code" });
+    }
+
+    const samePassword = await bcrypt.compare(newPassword, user.password);
+    if (samePassword) {
+      return res.status(400).send({ error: "Choose a password different from your current password" });
+    }
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    await user.save();
+    await PasswordReset.deleteOne({ _id: reset._id });
+
+    res.send({ message: "Password reset successfully. You can now sign in." });
+  } catch (error) {
+    console.error("Forgot password reset error:", error);
+    res.status(500).send({ error: "Unable to reset password right now" });
+  }
 });
 
 app.get("/profile", authenticateToken, async (req, res) => {
