@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Cookies from "js-cookie";
-import {Capacitor} from "@capacitor/core";
+import { Capacitor } from "@capacitor/core";
 import { Filesystem, Directory } from "@capacitor/filesystem";
+import { Download, TrendingUp, WalletCards, X } from "lucide-react";
 import {
   BarChart,
   Bar,
@@ -14,345 +15,217 @@ import {
   Pie,
   Cell,
 } from "recharts";
-
+import LoadingState from "../LoadingState";
 import "./index.css";
 
-
-const COLORS = [
-  "#4f46e5",
-  "#22c55e",
-  "#f59e0b",
-  "#ef4444",
-  "#06b6d4",
-  "#a855f7",
-  "#84cc16",
-];
+const API = "https://money-manager-wmon.onrender.com";
+const COLORS = ["#7c3aed", "#22c55e", "#f59e0b", "#ef4444", "#06b6d4", "#a855f7", "#84cc16"];
 
 const Analytics = () => {
   const [summaryData, setSummaryData] = useState([]);
   const [categoryData, setCategoryData] = useState([]);
   const [selectedMonth, setSelectedMonth] = useState(null);
   const [monthDetails, setMonthDetails] = useState([]);
-  const [monthlyData, setMontlyData] = useState([]);
-  const [error, setError] = useState([]);
+  const [monthlyData, setMonthlyData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  const hasData = categoryData && categoryData.length > 0;
-
-  const categoryTotals = monthDetails
-    .filter((item) => item.type === "Expenses")
-    .reduce((acc, curr) => {
-      const category = curr.category || "Other";
-      if (!acc[category]) {
-        acc[category] = 0;
-      }
-
-      acc[category] += curr.amount;
-
-      return acc;
-    }, {});
-
-  const categoryArray = Object.entries(categoryTotals);
+  const token = Cookies.get("jwt_token");
+  const headers = { Authorization: `Bearer ${token}` };
 
   useEffect(() => {
-    fetchAnalytics();
-    analyticsData();
-    fetchDate();
+    const load = async () => {
+      try {
+        setLoading(true);
+        const [summaryRes, categoryRes, monthlyRes] = await Promise.all([
+          fetch(`${API}/`, { headers }),
+          fetch(`${API}/analytics`, { headers }),
+          fetch(`${API}/monthly-summary`, { headers }),
+        ]);
+        if (!summaryRes.ok || !categoryRes.ok || !monthlyRes.ok) throw new Error("Failed to load analytics");
+        const [summary, categories, months] = await Promise.all([
+          summaryRes.json(),
+          categoryRes.json(),
+          monthlyRes.json(),
+        ]);
+        setSummaryData([
+          { name: "Income", amount: summary.income || 0 },
+          { name: "Expenses", amount: summary.expenses || 0 },
+          { name: "Balance", amount: summary.balance || 0 },
+        ]);
+        setCategoryData(categories || []);
+        setMonthlyData(months || []);
+        setError(null);
+      } catch (err) {
+        console.error(err);
+        setError("Unable to load analytics right now.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
   }, []);
 
-  const fetchAnalytics = async () => {
-    try {
-      const jwtToken = Cookies.get("jwt_token");
-      const url = "https://money-manager-wmon.onrender.com/";
-
-      // now use user id
-      const response = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${jwtToken}`,
-        },
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        const formattedData = [
-          { name: "Income", amount: data.income },
-          { name: "Expenses", amount: data.expenses },
-          { name: "Balance", amount: data.balance },
-        ];
-
-        setSummaryData(formattedData);
-      }
-    } catch (error) {
-      console.log("Analytics error:", error);
-    }
-  };
-
-  const analyticsData = async () => {
-    const url = "https://money-manager-wmon.onrender.com/analytics";
-    const jwtToken = Cookies.get("jwt_token");
-    try {
-      const options = {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${jwtToken}`,
-        },
-      };
-
-      const response = await fetch(url, options);
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch analytics");
-      }
-      setCategoryData(data);
-      setError(null);
-    } catch (err) {
-      console.error("Analytics error:", err);
-      setError("Failed to load analytics");
-    }
-  };
+  const formatMoney = (value) =>
+    new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(Number(value || 0));
 
   const openDetails = async (month) => {
     setSelectedMonth(month);
-
+    setDetailLoading(true);
     try {
-      setLoading(true);
-      const jwtToken = Cookies.get("jwt_token");
-
-      const response = await fetch(
-        `https://money-manager-wmon.onrender.com/monthly-details/${month}`,
-        {
-          headers: {
-            Authorization: `Bearer ${jwtToken}`,
-          },
-        },
-      );
-
+      const response = await fetch(`${API}/monthly-details/${month}`, { headers });
+      if (!response.ok) throw new Error("Unable to load month details");
       const data = await response.json();
-      setMonthDetails(data.transactions);
-    } catch (error) {
-      console.log("Month-Details:", error);
+      setMonthDetails(data.transactions || []);
+    } catch (err) {
+      console.error(err);
+      setMonthDetails([]);
     } finally {
-      setLoading(false);
+      setDetailLoading(false);
     }
-    // console.log(data)
   };
 
+  const detailStats = useMemo(() => {
+    let income = 0;
+    let expenses = 0;
+    monthDetails.forEach((item) => {
+      if (item.type === "Income") income += Number(item.amount || 0);
+      else expenses += Number(item.amount || 0);
+    });
+    return { income, expenses, savings: income - expenses };
+  }, [monthDetails]);
+
+  const categoryArray = useMemo(() => {
+    const totals = {};
+    monthDetails.filter((item) => item.type === "Expenses").forEach((item) => {
+      const key = item.category || "Other";
+      totals[key] = (totals[key] || 0) + Number(item.amount || 0);
+    });
+    return Object.entries(totals).sort((a, b) => b[1] - a[1]);
+  }, [monthDetails]);
+
   const downloadMonth = async (month) => {
-    const jwtToken = Cookies.get("jwt_token");
     try {
-      const response = await fetch(
-        `https://money-manager-wmon.onrender.com/export-month/${month}`,
-        {
-          headers: {
-            Authorization: `Bearer ${jwtToken}`,
-          },
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error("Export failed");
-      }
-
+      const response = await fetch(`${API}/export-month/${month}`, { headers });
+      if (!response.ok) throw new Error("Export failed");
       const blob = await response.blob();
-
-      if(! Capacitor.isNativePlatform()) {
-      const url = window.URL.createObjectURL(blob);
-
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${month}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-
-      a.remove();
-      window.URL.revokeObjectURL(url);
-      return;
+      if (!Capacitor.isNativePlatform()) {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${month}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+        return;
       }
-      const arrayBuffer = await blob.arrayBuffer();
-      const bytes = new Uint8Array(arrayBuffer);
+      const bytes = new Uint8Array(await blob.arrayBuffer());
       let binary = "";
-      for (let i = 0; i < bytes.byteLength; i++){
-        binary += String.fromCharCode(bytes[i]);
-      }
-
-      const base64Data = btoa(binary);
-      const result = await Filesystem.writeFile({
-        path: `${month}.xlsx`,
-        data: base64Data,
-        directory: Directory.Documents,
-      });
-
-      console.log("File saved:", result.uri);
-      alert(`Excel downloaded successfully to ${month}.xlsx`);
-    } catch (error) {
-      console.error("Download error:", error);
+      for (let i = 0; i < bytes.byteLength; i += 1) binary += String.fromCharCode(bytes[i]);
+      await Filesystem.writeFile({ path: `${month}.xlsx`, data: btoa(binary), directory: Directory.Documents });
+      alert(`Excel downloaded successfully: ${month}.xlsx`);
+    } catch (err) {
+      console.error(err);
       alert("Download failed. Try again.");
     }
   };
 
-  const fetchDate = async () => {
-    try {
-      setLoading(true);
-      const url = "https://money-manager-wmon.onrender.com/monthly-summary";
-      const jwtToken = Cookies.get("jwt_token");
-
-      const options = {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${jwtToken}`,
-        },
-      };
-
-      const response = await fetch(url, options);
-      const data = await response.json();
-      setMontlyData(data);
-    } catch (error) {
-      console.log("monthly-summary:", error);
-    } finally {
-      setLoading(false);
-    }
-    // console.log("Monthly API Response", data)
-  };
-
   return (
-    <div className="analytics-container">
-      <div className="analytics-wrapper">
-        <h1 className="analytics-title">Financial Analytics</h1>
-        <p className="analytics-subtitle">
-          Track your income, expenses and savings insights
-        </p>
-        <div className="chart-grid">
-          <div className="chart-card">
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={summaryData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="amount" fill="#4f46e5" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="chart-card">
-            {hasData ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart width={400} height={300}>
-                  <Pie
-                    data={categoryData}
-                    dataKey="total"
-                    nameKey="category"
-                    outerRadius="80%"
-                    label
-                  >
-                    {categoryData.map((entry, index) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={COLORS[index % COLORS.length]}
-                      />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="empty-chart">
-                <p>📊 No expense data available</p>
-                <p>Add some expenses to see insights</p>
-              </div>
-            )}
-          </div>
+    <div className="analytics-page">
+      <div className="analytics-heading">
+        <div>
+          <p>Insights</p>
+          <h1>Financial Analytics</h1>
+          <span>Understand spending patterns, savings and archived monthly performance.</span>
         </div>
       </div>
-      <div className="history-card">
-        <h2 className="section-title">Past Transactions</h2>
-        {loading ? (
-          <div className="loader-container">
-            <div className="spinner"></div>
-          </div>
-        ) : (
-          monthlyData.map((item) => (
-            <div className="month-card" key={item.month}>
-              <h3>{item.month}</h3>
-              <p>Expenses: ₹{item.expenses}</p>
-              <p>Savings: ₹{item.savings}</p>
 
-              <button
-                className="view-btn"
-                onClick={() => openDetails(item.month)}
-              >
-                📊 View Details
-              </button>
-            </div>
-          ))
-        )}
-
-        {selectedMonth && (
-          <div className= "modal">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h3>📅 {selectedMonth}</h3>
-              </div>
-              {loading ? (
-                <div className="loader-container">
-                  <div className="spinner"></div>
+      {loading ? (
+        <LoadingState variant="chart" rows={2} label="Building your analytics dashboard..." />
+      ) : error ? (
+        <div className="analytics-error">{error}</div>
+      ) : (
+        <>
+          <section className="analytics-stat-grid">
+            {summaryData.map((item) => (
+              <article className="analytics-stat-card" key={item.name}>
+                <div className={`analytics-stat-icon ${item.name.toLowerCase()}`}>
+                  {item.name === "Balance" ? <WalletCards size={20} /> : <TrendingUp size={20} />}
                 </div>
-              ) : (
-                <div className="modal-body">
-                  {monthDetails.map((item) => (
-                    <div key={item._id} className="transaction-row">
-                      <span className="title">{item.title}</span>
-                      <span
-                        className="amount"
-                        style={{
-                          color: item.type === "Income" ? "green" : "red",
-                        }}
-                      >
-                        ₹{item.amount}
-                      </span>
-                      <span className="date">{item.date}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
+                <span>{item.name}</span>
+                <strong className={item.name === "Expenses" ? "expense-metric" : item.name === "Income" ? "income-metric" : ""}>{formatMoney(item.amount)}</strong>
+              </article>
+            ))}
+          </section>
 
-              <div className="category-summary">
-                <h3>💸 Expense by Category</h3>
-                {loading ? (
-                  <div className="loader-container">
-                    <div className="spinner"></div>
-                  </div>
-                ) : categoryArray.length === 0 ? (
-                  <p>No expense data</p>
-                ) : (
-                  categoryArray.map(([category, total]) => (
-                    <div key={category} className="category-row">
-                      <span>{category}</span>
-                      <span>₹{total}</span>
-                    </div>
-                  ))
-                )}
-              </div>
-              <div className="modal-actions">
-                <button
-                  className="download-btn"
-                  onClick={() => downloadMonth(selectedMonth)}
-                >
-                  ⬇ Download Excel
-                </button>
+          <section className="analytics-chart-grid">
+            <article className="analytics-card">
+              <div className="analytics-card-title"><h2>Income vs Expense</h2><span>Current month</span></div>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={summaryData} margin={{ top: 10, right: 8, left: -12, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.25} />
+                  <XAxis dataKey="name" tickLine={false} axisLine={false} />
+                  <YAxis tickLine={false} axisLine={false} />
+                  <Tooltip formatter={(value) => formatMoney(value)} />
+                  <Bar dataKey="amount" fill="#7c3aed" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </article>
 
-                <button
-                  className="close-btn"
-                  onClick={() => setSelectedMonth(null)}
-                >
-                  ✖ Close
-                </button>
-              </div>
+            <article className="analytics-card">
+              <div className="analytics-card-title"><h2>Expense Breakdown</h2><span>By category</span></div>
+              {categoryData.length ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie data={categoryData} dataKey="total" nameKey="category" innerRadius="42%" outerRadius="76%" paddingAngle={2}>
+                      {categoryData.map((_, index) => <Cell key={index} fill={COLORS[index % COLORS.length]} />)}
+                    </Pie>
+                    <Tooltip formatter={(value) => formatMoney(value)} />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : <div className="analytics-empty">No expense data available yet.</div>}
+            </article>
+          </section>
+
+          <section className="analytics-card archive-section">
+            <div className="analytics-card-title"><h2>Monthly Archive</h2><span>{monthlyData.length} archived months</span></div>
+            <div className="month-grid">
+              {monthlyData.length ? monthlyData.map((item) => (
+                <article className="month-card-modern" key={item.month}>
+                  <div><span>Month</span><h3>{item.month}</h3></div>
+                  <div className="month-metrics"><span>Expenses <strong className="expense-metric">{formatMoney(item.expenses)}</strong></span><span>Savings <strong className={item.savings >= 0 ? "income-metric" : "expense-metric"}>{formatMoney(item.savings)}</strong></span></div>
+                  <button onClick={() => openDetails(item.month)}>View Details</button>
+                </article>
+              )) : <div className="analytics-empty">No archived months yet. Use Reset Month from History when you close a month.</div>}
             </div>
-          </div>
-        )}
-      </div>
+          </section>
+        </>
+      )}
+
+      {selectedMonth && (
+        <div className="analytics-overlay" onClick={() => setSelectedMonth(null)}>
+          <aside className="analytics-drawer" onClick={(e) => e.stopPropagation()}>
+            <div className="drawer-header">
+              <div><span>Archived month</span><h2>{selectedMonth}</h2></div>
+              <button aria-label="Close details" onClick={() => setSelectedMonth(null)}><X size={20} /></button>
+            </div>
+            {detailLoading ? <LoadingState variant="list" rows={4} label="Loading monthly details..." /> : (
+              <>
+                <div className="drawer-stat-grid">
+                  <div><span>Income</span><strong className="income-metric">{formatMoney(detailStats.income)}</strong></div>
+                  <div><span>Expenses</span><strong className="expense-metric">{formatMoney(detailStats.expenses)}</strong></div>
+                  <div><span>Savings</span><strong>{formatMoney(detailStats.savings)}</strong></div>
+                </div>
+                <div className="drawer-section"><h3>Transactions</h3><div className="drawer-transactions">{monthDetails.length ? monthDetails.map((item) => <div className="drawer-row" key={item._id}><div><strong>{item.title}</strong><span>{item.category || "Other"}</span></div><div><strong className={item.type === "Income" ? "income-metric" : "expense-metric"}>{item.type === "Income" ? "+ " : "- "}{formatMoney(item.amount)}</strong><span>{item.date || ""}</span></div></div>) : <div className="analytics-empty">No transaction details found.</div>}</div></div>
+                <div className="drawer-section"><h3>Expense by Category</h3>{categoryArray.length ? categoryArray.map(([name, total]) => <div className="category-row-modern" key={name}><span>{name}</span><strong>{formatMoney(total)}</strong></div>) : <div className="analytics-empty">No expense data.</div>}</div>
+                <button className="drawer-download" onClick={() => downloadMonth(selectedMonth)}><Download size={18} /> Download Excel</button>
+              </>
+            )}
+          </aside>
+        </div>
+      )}
     </div>
   );
 };
