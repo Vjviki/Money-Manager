@@ -1,6 +1,6 @@
 .table-row {
   display: grid;
-  grid-template-columns: 110px minmax(210px, 1.7fr) minmax(120px, 0.9fr) minmax(110px, 0.8fr) 72px;
+  grid-template-columns: 110px minmax(210px, 1.7fr) minmax(120px, 0.9fr) minmax(110px, 0.8fr) 96px;
   align-items: center;
   gap: 16px;
   list-style-type: none;
@@ -12,261 +12,61 @@
   box-shadow: 0 4px 14px var(--shadow-color);
 }
 
-.transaction-date-cell {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.transaction-day {
-  color: var(--text-primary);
-  font-size: 18px;
-  font-weight: 700;
-  line-height: 1.1;
-}
-
-.transaction-month-year {
-  color: var(--text-secondary);
-  font-size: 12px;
-  margin-top: 4px;
-  white-space: nowrap;
-}
-
-.transaction-title-cell {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-}
-
-.category-icon-wrap {
-  width: 42px;
-  height: 42px;
-  min-width: 42px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.transaction-title-content {
-  min-width: 0;
-}
-
-.transaction-title {
-  margin: 0 0 6px;
-  color: var(--text-primary);
-  font-size: 14px;
-  font-weight: 700;
-  line-height: 1.25;
-  overflow-wrap: anywhere;
-}
-
-.category-badge {
-  display: inline-flex;
-  align-items: center;
-  border-radius: 8px;
-  padding: 4px 8px;
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.category-food {
-  background: #fee2e2;
-  color: #dc2626;
-}
-
-.category-entertainment {
-  background: #ede9fe;
-  color: #7c3aed;
-}
-
-.category-medical {
-  background: #ffe4e6;
-  color: #e11d48;
-}
-
-.category-transport {
-  background: #dbeafe;
-  color: #2563eb;
-}
-
-.category-education {
-  background: #fef3c7;
-  color: #b45309;
-}
-
-.category-shopping {
-  background: #fce7f3;
-  color: #db2777;
-}
-
-.category-salary {
-  background: #dcfce7;
-  color: #16a34a;
-}
-
-.category-other {
-  background: #e2e8f0;
-  color: #475569;
-}
-
-.transaction-amount {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.income-amount {
-  color: #16a34a;
-}
-
-.expense-amount {
-  color: #dc2626;
-}
-
-.transaction-type-cell {
-  display: flex;
-  align-items: center;
-}
-
-.type-badge {
-  display: inline-flex;
-  justify-content: center;
-  align-items: center;
-  min-width: 76px;
-  border-radius: 9px;
-  padding: 7px 10px;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.income-badge {
-  color: #15803d;
-  background: #dcfce7;
-}
-
-.expense-badge {
-  color: #dc2626;
-  background: #fee2e2;
-}
-
-.delete-container {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-}
-
-.delete-button {
-  width: 40px;
-  height: 40px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  color: #ef4444;
-  border: 1px solid #fecaca;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: 0.2s ease;
-}
-
-.delete-button:hover {
-  background: #fef2f2;
-  border-color: #fca5a5;
-  transform: translateY(-1px);
-}
-
-.delete-button:active {
-  transform: translateY(0);
-}
+.transaction-date-cell { display: flex; flex-direction: column; min-width: 0; }
+.transaction-day { color: var(--text-primary); font-size: 18px; font-weight: 700; line-height: 1.1; }
+.transaction-month-year { color: var(--text-secondary); font-size: 12px; margin-top: 4px; white-space: nowrap; }
+.transaction-title-cell { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.category-icon-wrap { width: 42px; height: 42px; min-width: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+.transaction-title-content { min-width: 0; }
+.transaction-title { margin: 0 0 6px; color: var(--text-primary); font-size: 14px; font-weight: 700; line-height: 1.25; overflow-wrap: anywhere; }
+.category-badge { display: inline-flex; align-items: center; border-radius: 8px; padding: 4px 8px; font-size: 11px; font-weight: 600; line-height: 1; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.category-food { background: #fee2e2; color: #dc2626; }
+.category-entertainment { background: #ede9fe; color: #7c3aed; }
+.category-medical { background: #ffe4e6; color: #e11d48; }
+.category-transport { background: #dbeafe; color: #2563eb; }
+.category-education { background: #fef3c7; color: #b45309; }
+.category-shopping { background: #fce7f3; color: #db2777; }
+.category-salary { background: #dcfce7; color: #16a34a; }
+.category-other { background: #e2e8f0; color: #475569; }
+.transaction-amount { margin: 0; font-size: 15px; font-weight: 700; white-space: nowrap; }
+.income-amount { color: #16a34a; }
+.expense-amount { color: #dc2626; }
+.transaction-type-cell { display: flex; align-items: center; }
+.type-badge { display: inline-flex; justify-content: center; align-items: center; min-width: 76px; border-radius: 9px; padding: 7px 10px; font-size: 12px; font-weight: 700; }
+.income-badge { color: #15803d; background: #dcfce7; }
+.expense-badge { color: #dc2626; background: #fee2e2; }
+.transaction-actions { display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
+.edit-button, .delete-button { width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; background: transparent; border-radius: 10px; cursor: pointer; transition: 0.2s ease; }
+.edit-button { color: #7c3aed; border: 1px solid #ddd6fe; }
+.edit-button:hover { background: #f5f3ff; border-color: #c4b5fd; transform: translateY(-1px); }
+.delete-button { color: #ef4444; border: 1px solid #fecaca; }
+.delete-button:hover { background: #fef2f2; border-color: #fca5a5; transform: translateY(-1px); }
+.dark-theme .edit-button { color: #c4b5fd; border-color: #5b4a85; }
+.dark-theme .edit-button:hover { background: #33245c; }
+.edit-button:active, .delete-button:active { transform: translateY(0); }
 
 @media screen and (max-width: 767px) {
   .table-row {
     grid-template-columns: 58px minmax(0, 1fr) auto;
     grid-template-areas:
-      "date title delete"
-      "date amount delete"
-      "date type delete";
+      "date title actions"
+      "date amount actions"
+      "date type actions";
     gap: 6px 10px;
     padding: 14px 12px;
     border-radius: 14px;
   }
-
-  .transaction-date-cell {
-    grid-area: date;
-    align-self: stretch;
-    justify-content: center;
-    padding-right: 8px;
-    border-right: 1px solid var(--border-color);
-  }
-
-  .transaction-day {
-    font-size: 20px;
-  }
-
-  .transaction-month-year {
-    font-size: 10px;
-    white-space: normal;
-    line-height: 1.2;
-  }
-
-  .transaction-title-cell {
-    grid-area: title;
-    gap: 8px;
-  }
-
-  .category-icon-wrap {
-    width: 34px;
-    height: 34px;
-    min-width: 34px;
-  }
-
-  .category-icon-wrap svg {
-    width: 17px;
-    height: 17px;
-  }
-
-  .transaction-title {
-    font-size: 14px;
-    margin-bottom: 4px;
-  }
-
-  .category-badge {
-    font-size: 10px;
-    padding: 4px 7px;
-  }
-
-  .transaction-amount {
-    grid-area: amount;
-    font-size: 14px;
-    margin-left: 42px;
-  }
-
-  .transaction-type-cell {
-    grid-area: type;
-    margin-left: 42px;
-  }
-
-  .type-badge {
-    min-width: 68px;
-    padding: 5px 8px;
-    font-size: 10px;
-  }
-
-  .delete-container {
-    grid-area: delete;
-    align-self: center;
-  }
-
-  .delete-button {
-    width: 36px;
-    height: 36px;
-  }
+  .transaction-date-cell { grid-area: date; align-self: stretch; justify-content: center; padding-right: 8px; border-right: 1px solid var(--border-color); }
+  .transaction-day { font-size: 20px; }
+  .transaction-month-year { font-size: 10px; white-space: normal; line-height: 1.2; }
+  .transaction-title-cell { grid-area: title; gap: 8px; }
+  .category-icon-wrap { width: 34px; height: 34px; min-width: 34px; }
+  .category-icon-wrap svg { width: 17px; height: 17px; }
+  .transaction-title { font-size: 14px; margin-bottom: 4px; }
+  .category-badge { font-size: 10px; padding: 4px 7px; }
+  .transaction-amount { grid-area: amount; font-size: 14px; margin-left: 42px; }
+  .transaction-type-cell { grid-area: type; margin-left: 42px; }
+  .type-badge { min-width: 68px; padding: 5px 8px; font-size: 10px; }
+  .transaction-actions { grid-area: actions; align-self: center; flex-direction: column; gap: 6px; }
+  .edit-button, .delete-button { width: 34px; height: 34px; }
 }
