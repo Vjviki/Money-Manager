@@ -1,14 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import Cookies from "js-cookie";
 import toast from "react-hot-toast";
-import { RotateCcw, Search, SlidersHorizontal } from "lucide-react";
+import { RotateCcw, Search, SlidersHorizontal, X } from "lucide-react";
 import TransactionItem from "../TransactionItem";
 import LoadingState from "../LoadingState";
 import "./index.css";
 
 const API = "https://money-manager-wmon.onrender.com";
 const ITEMS_PER_PAGE = 10;
-
 const normalizeText = (value = "") => value.trim().toLowerCase();
 
 const getLocalDateKey = (value) => {
@@ -31,6 +30,9 @@ const History = () => {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [page, setPage] = useState(1);
+  const [editing, setEditing] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [editForm, setEditForm] = useState({ title: "", category: "", amount: "", type: "Income", date: "" });
 
   const token = Cookies.get("jwt_token");
 
@@ -96,13 +98,55 @@ const History = () => {
     }
   };
 
+  const editTransaction = (transaction) => {
+    setEditing(transaction);
+    setEditForm({
+      title: transaction.title || "",
+      category: transaction.category || "Other",
+      amount: String(transaction.amount || ""),
+      type: transaction.type || "Income",
+      date: getLocalDateKey(transaction.created_at),
+    });
+  };
+
+  const saveTransaction = async (event) => {
+    event.preventDefault();
+    if (!editForm.title.trim() || !editForm.category.trim() || Number(editForm.amount) <= 0 || !editForm.date) {
+      toast.error("Please complete all transaction fields");
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const response = await fetch(`${API}/transactions/${editing._id}`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: editForm.title.trim(),
+          category: editForm.category.trim(),
+          amount: Number(editForm.amount),
+          type: editForm.type,
+          created_at: editForm.date,
+        }),
+      });
+      if (!response.ok) throw new Error("Update failed");
+      const data = await response.json();
+      setTransactions((prev) => prev.map((item) => item._id === editing._id ? data.transaction : item));
+      setEditing(null);
+      toast.success("Transaction updated");
+    } catch (error) {
+      console.error(error);
+      toast.error("Unable to update transaction");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const clearFilters = () => {
-    setQuery("");
-    setType("ALL");
-    setCategory("ALL");
-    setFromDate("");
-    setToDate("");
-    setPage(1);
+    setQuery(""); setType("ALL"); setCategory("ALL"); setFromDate(""); setToDate(""); setPage(1);
   };
 
   const resetMonth = async () => {
@@ -148,21 +192,33 @@ const History = () => {
 
       <section className="history-panel history-records-panel">
         <div className="history-table-head"><span>Date</span><span>Title & Category</span><span>Amount</span><span>Type</span><span>Action</span></div>
-        {loading ? (
-          <LoadingState variant="list" rows={5} label="Loading transaction history..." />
-        ) : (
-          <>
-            <ul className="history-list">
-              {paginated.length === 0 ? <div className="history-empty">No transactions match these filters.</div> : paginated.map((transaction) => <TransactionItem key={transaction._id} transactionDetails={transaction} deleteTransaction={deleteTransaction} />)}
-            </ul>
-            <div className="history-pagination">
-              <button type="button" disabled={page === 1} onClick={() => setPage((prev) => prev - 1)}>Previous</button>
-              <span>Page {page} of {totalPages}</span>
-              <button type="button" disabled={page >= totalPages} onClick={() => setPage((prev) => prev + 1)}>Next</button>
-            </div>
-          </>
-        )}
+        {loading ? <LoadingState variant="list" rows={5} label="Loading transaction history..." /> : <>
+          <ul className="history-list">
+            {paginated.length === 0 ? <div className="history-empty">No transactions match these filters.</div> : paginated.map((transaction) => <TransactionItem key={transaction._id} transactionDetails={transaction} deleteTransaction={deleteTransaction} editTransaction={editTransaction} />)}
+          </ul>
+          <div className="history-pagination">
+            <button type="button" disabled={page === 1} onClick={() => setPage((prev) => prev - 1)}>Previous</button>
+            <span>Page {page} of {totalPages}</span>
+            <button type="button" disabled={page >= totalPages} onClick={() => setPage((prev) => prev + 1)}>Next</button>
+          </div>
+        </>}
       </section>
+
+      {editing && (
+        <div className="edit-overlay" onClick={() => setEditing(null)}>
+          <div className="edit-dialog" onClick={(e) => e.stopPropagation()}>
+            <div className="edit-dialog-header"><div><span>Edit transaction</span><h2>{editing.title}</h2></div><button type="button" onClick={() => setEditing(null)} aria-label="Close edit"><X size={20} /></button></div>
+            <form className="edit-form" onSubmit={saveTransaction}>
+              <label><span>Title</span><input value={editForm.title} onChange={(e) => setEditForm((prev) => ({ ...prev, title: e.target.value }))} /></label>
+              <label><span>Category</span><input value={editForm.category} onChange={(e) => setEditForm((prev) => ({ ...prev, category: e.target.value }))} /></label>
+              <label><span>Amount</span><input type="number" min="1" value={editForm.amount} onChange={(e) => setEditForm((prev) => ({ ...prev, amount: e.target.value }))} /></label>
+              <label><span>Date</span><input type="date" value={editForm.date} onChange={(e) => setEditForm((prev) => ({ ...prev, date: e.target.value }))} /></label>
+              <label><span>Type</span><select value={editForm.type} onChange={(e) => setEditForm((prev) => ({ ...prev, type: e.target.value }))}><option value="Income">Income</option><option value="Expenses">Expense</option></select></label>
+              <div className="edit-form-actions"><button type="button" className="edit-cancel" onClick={() => setEditing(null)}>Cancel</button><button type="submit" className="edit-save" disabled={saving}>{saving ? "Saving..." : "Save Changes"}</button></div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
