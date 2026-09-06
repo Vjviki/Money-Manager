@@ -20,6 +20,38 @@ import "./index.css";
 
 const API = "https://money-manager-wmon.onrender.com";
 
+const PasswordInput = ({
+  label,
+  name,
+  visibilityKey,
+  placeholder,
+  showPasswords,
+  passwordForm,
+  updatePasswordField,
+  toggleVisibility,
+}) => (
+  <label className="profile-password-field">
+    <span>{label}</span>
+    <div className="profile-password-input-wrap">
+      <input
+        name={name}
+        type={showPasswords[visibilityKey] ? "text" : "password"}
+        value={passwordForm[name]}
+        onChange={updatePasswordField}
+        placeholder={placeholder}
+        autoComplete={name === "currentPassword" ? "current-password" : "new-password"}
+      />
+      <button
+        type="button"
+        aria-label={showPasswords[visibilityKey] ? `Hide ${label}` : `Show ${label}`}
+        onClick={() => toggleVisibility(visibilityKey)}
+      >
+        {showPasswords[visibilityKey] ? <EyeOff size={18} /> : <Eye size={18} />}
+      </button>
+    </div>
+  </label>
+);
+
 const UserProfile = () => {
   const [userData, setUserData] = useState({});
   const [summary, setSummary] = useState({ balance: 0, income: 0, expenses: 0 });
@@ -166,6 +198,13 @@ const UserProfile = () => {
     setPasswordForm((prev) => ({ ...prev, [name]: value }));
   };
 
+  const togglePasswordVisibility = (visibilityKey) => {
+    setShowPasswords((prev) => ({
+      ...prev,
+      [visibilityKey]: !prev[visibilityKey],
+    }));
+  };
+
   const changePassword = async (event) => {
     event.preventDefault();
 
@@ -205,34 +244,6 @@ const UserProfile = () => {
       setPasswordSaving(false);
     }
   };
-
-  const PasswordInput = ({ label, name, visibilityKey, placeholder }) => (
-    <label className="profile-password-field">
-      <span>{label}</span>
-      <div className="profile-password-input-wrap">
-        <input
-          name={name}
-          type={showPasswords[visibilityKey] ? "text" : "password"}
-          value={passwordForm[name]}
-          onChange={updatePasswordField}
-          placeholder={placeholder}
-          autoComplete={name === "currentPassword" ? "current-password" : "new-password"}
-        />
-        <button
-          type="button"
-          aria-label={showPasswords[visibilityKey] ? `Hide ${label}` : `Show ${label}`}
-          onClick={() =>
-            setShowPasswords((prev) => ({
-              ...prev,
-              [visibilityKey]: !prev[visibilityKey],
-            }))
-          }
-        >
-          {showPasswords[visibilityKey] ? <EyeOff size={18} /> : <Eye size={18} />}
-        </button>
-      </div>
-    </label>
-  );
 
   if (loading) {
     return (
@@ -355,9 +366,36 @@ const UserProfile = () => {
                 <p>We verify your current password before saving the new one. Use at least 8 characters.</p>
               </div>
 
-              <PasswordInput label="Current password" name="currentPassword" visibilityKey="current" placeholder="Enter current password" />
-              <PasswordInput label="New password" name="newPassword" visibilityKey="next" placeholder="At least 8 characters" />
-              <PasswordInput label="Confirm new password" name="confirmPassword" visibilityKey="confirm" placeholder="Repeat new password" />
+              <PasswordInput
+                label="Current password"
+                name="currentPassword"
+                visibilityKey="current"
+                placeholder="Enter current password"
+                showPasswords={showPasswords}
+                passwordForm={passwordForm}
+                updatePasswordField={updatePasswordField}
+                toggleVisibility={togglePasswordVisibility}
+              />
+              <PasswordInput
+                label="New password"
+                name="newPassword"
+                visibilityKey="next"
+                placeholder="At least 8 characters"
+                showPasswords={showPasswords}
+                passwordForm={passwordForm}
+                updatePasswordField={updatePasswordField}
+                toggleVisibility={togglePasswordVisibility}
+              />
+              <PasswordInput
+                label="Confirm new password"
+                name="confirmPassword"
+                visibilityKey="confirm"
+                placeholder="Repeat new password"
+                showPasswords={showPasswords}
+                passwordForm={passwordForm}
+                updatePasswordField={updatePasswordField}
+                toggleVisibility={togglePasswordVisibility}
+              />
 
               <div className="profile-edit-actions">
                 <button className="profile-cancel-btn" type="button" onClick={closePasswordModal}>Cancel</button>
