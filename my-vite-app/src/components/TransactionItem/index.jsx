@@ -19,7 +19,7 @@ const TransactionItem = (props) => {
       >
         {type}
       </p>
-      <p className="transaction-text">{new Date(created_at).toLoacaleDateString("en-IN")}</p>
+      <p className="transaction-text">{new Date(created_at).toLocaleDateString("en-IN")}</p>
       <div className="delete-container">
         <button
           className="delete-button"
