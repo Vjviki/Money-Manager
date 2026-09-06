@@ -113,8 +113,6 @@ app.post("/login", async (req, res) => {
   } else {
     res.status(400).json({ errorMessage: "Invalid password" });
   }
-
-  console.log("JWT User:", req.user);
 });
 
 app.post("/register", async (req, res) => {
@@ -190,6 +188,32 @@ app.get("/transactions", authenticateToken, async (req, res) => {
   res.send({ transactions });
 });
 
+app.put("/transactions/:id", authenticateToken, async (req, res) => {
+  const { title, amount, type, category, created_at } = req.body;
+
+  if (!title || !category || !type || !created_at || Number(amount) <= 0) {
+    return res.status(400).send({ error: "Invalid transaction data" });
+  }
+
+  const updated = await Transaction.findOneAndUpdate(
+    { _id: req.params.id, user_id: req.user.id },
+    {
+      title: title.trim(),
+      amount: Number(amount),
+      type,
+      category: category.trim(),
+      created_at,
+    },
+    { new: true },
+  );
+
+  if (!updated) {
+    return res.status(404).send({ error: "Transaction not found" });
+  }
+
+  res.send({ message: "Transaction updated successfully", transaction: updated });
+});
+
 /* ================= ANALYTICS ================= */
 
 app.get("/analytics", authenticateToken, async (req, res) => {
@@ -220,7 +244,6 @@ app.get("/analytics", authenticateToken, async (req, res) => {
 
 app.post("/reset-month", authenticateToken, async (req, res) => {
   const currentMonth = new Date().toISOString().slice(0, 7);
-
   const transactions = await Transaction.find({ user_id: req.user.id });
 
   const backupData = transactions.map((t) => ({
@@ -233,16 +256,17 @@ app.post("/reset-month", authenticateToken, async (req, res) => {
     backup_month: currentMonth,
   }));
 
-  await Backup.insertMany(backupData);
-  await Transaction.deleteMany({ user_id: req.user.id });
+  if (backupData.length > 0) {
+    await Backup.insertMany(backupData);
+  }
 
+  await Transaction.deleteMany({ user_id: req.user.id });
   res.send({ message: "Monthly reset completed" });
 });
 
 /* ================= MONTHLY ================= */
 
 app.get("/monthly-summary", authenticateToken, async (req, res) => {
-  // console.log("✅ API HIT /monthly-summary");
   try {
     const data = await Backup.aggregate([
       { $match: { user_id: new mongoose.Types.ObjectId(req.user.id) } },
@@ -263,25 +287,6 @@ app.get("/monthly-summary", authenticateToken, async (req, res) => {
       },
       { $sort: { _id: -1 } },
     ]);
-    // await Backup.updateMany(
-    //   {},
-    //   {
-    //     $set: {
-    //       user_id: new mongoose.Types.ObjectId("69f496a146c04fcbbb6b0579"),
-    //     },
-    //   },
-    // );
-
-    // const one = await Backup.findOne();
-
-    // console.log("DB user_id:", one.user_id);
-    // console.log("DB user_id type:", typeof one.user_id);
-
-    // console.log("REQ user_id:", req.user.id);
-    // console.log("REQ user_id type:", typeof req.user.id);
-
-    // const docs = await Backup.find().limit(2);
-    // console.log(docs);
 
     res.send(
       data.map((d) => ({
@@ -290,7 +295,6 @@ app.get("/monthly-summary", authenticateToken, async (req, res) => {
         savings: d.income - d.expenses,
       })),
     );
-    // console.log("Monthly Data:", data);
   } catch (error) {
     console.log(error);
     res.status(500).send({ error: error.message });
@@ -302,8 +306,6 @@ app.get("/monthly-details/:month", authenticateToken, async (req, res) => {
     user_id: req.user.id,
     backup_month: req.params.month,
   });
-
-  console.log(data);
 
   res.send({ transactions: data });
 });
