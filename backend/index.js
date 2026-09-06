@@ -12,7 +12,6 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
 
-// ✅ MongoDB Connection
 mongoose
   .connect(process.env.MONGO_URL)
   .then(() => {
@@ -26,9 +25,6 @@ mongoose
     process.exit(1);
   });
 
-/* ================= MODELS ================= */
-
-// USER
 const User = mongoose.model(
   "User",
   new mongoose.Schema(
@@ -43,7 +39,6 @@ const User = mongoose.model(
   ),
 );
 
-// TRANSACTION
 const Transaction = mongoose.model(
   "Transaction",
   new mongoose.Schema({
@@ -56,7 +51,6 @@ const Transaction = mongoose.model(
   }),
 );
 
-// BACKUP
 const Backup = mongoose.model(
   "Backup",
   new mongoose.Schema({
@@ -69,8 +63,6 @@ const Backup = mongoose.model(
     backup_month: String,
   }),
 );
-
-/* ================= AUTH ================= */
 
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers["authorization"];
@@ -90,11 +82,8 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
-/* ================= AUTH APIs ================= */
-
 app.post("/login", async (req, res) => {
   const { username, password } = req.body;
-
   const dbUser = await User.findOne({ username });
 
   if (!dbUser) {
@@ -108,7 +97,6 @@ app.post("/login", async (req, res) => {
       { id: dbUser._id, username: dbUser.username },
       "MY_SECRET_KEY",
     );
-
     res.send({ jwtToken });
   } else {
     res.status(400).json({ errorMessage: "Invalid password" });
@@ -117,7 +105,6 @@ app.post("/login", async (req, res) => {
 
 app.post("/register", async (req, res) => {
   const { name, username, gender, email, password } = req.body;
-
   const existingUser = await User.findOne({ username });
 
   if (existingUser) {
@@ -137,18 +124,52 @@ app.post("/register", async (req, res) => {
   res.json({ message: "User created successfully" });
 });
 
-/* ================= USER ================= */
-
 app.get("/profile", authenticateToken, async (req, res) => {
-  const user = await User.findOne(
-    { username: req.user.username },
-    { password: 0 },
-  );
+  const user = await User.findById(req.user.id, { password: 0 });
+
+  if (!user) {
+    return res.status(404).send({ error: "User not found" });
+  }
 
   res.send(user);
 });
 
-/* ================= TRANSACTIONS ================= */
+app.put("/profile", authenticateToken, async (req, res) => {
+  try {
+    const { name, email, gender } = req.body;
+    const cleanName = String(name || "").trim();
+    const cleanEmail = String(email || "").trim().toLowerCase();
+    const allowedGenders = ["Male", "Female", "Others"];
+
+    if (!cleanName || !cleanEmail || !allowedGenders.includes(gender)) {
+      return res.status(400).send({ error: "Please provide valid profile details" });
+    }
+
+    const emailInUse = await User.findOne({
+      email: cleanEmail,
+      _id: { $ne: req.user.id },
+    });
+
+    if (emailInUse) {
+      return res.status(409).send({ error: "Email is already in use" });
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user.id,
+      { name: cleanName, email: cleanEmail, gender },
+      { new: true, runValidators: true, projection: { password: 0 } },
+    );
+
+    if (!updatedUser) {
+      return res.status(404).send({ error: "User not found" });
+    }
+
+    res.send({ message: "Profile updated successfully", user: updatedUser });
+  } catch (error) {
+    console.error("Profile update error:", error);
+    res.status(500).send({ error: "Unable to update profile" });
+  }
+});
 
 app.post("/", authenticateToken, async (req, res) => {
   const { title, amount, type, category, created_at } = req.body;
@@ -176,11 +197,7 @@ app.get("/", authenticateToken, async (req, res) => {
     else expenses += t.amount;
   });
 
-  res.send({
-    income,
-    expenses,
-    balance: income - expenses,
-  });
+  res.send({ income, expenses, balance: income - expenses });
 });
 
 app.get("/transactions", authenticateToken, async (req, res) => {
@@ -214,8 +231,6 @@ app.put("/transactions/:id", authenticateToken, async (req, res) => {
   res.send({ message: "Transaction updated successfully", transaction: updated });
 });
 
-/* ================= ANALYTICS ================= */
-
 app.get("/analytics", authenticateToken, async (req, res) => {
   const data = await Transaction.aggregate([
     {
@@ -240,8 +255,6 @@ app.get("/analytics", authenticateToken, async (req, res) => {
   );
 });
 
-/* ================= RESET ================= */
-
 app.post("/reset-month", authenticateToken, async (req, res) => {
   const currentMonth = new Date().toISOString().slice(0, 7);
   const transactions = await Transaction.find({ user_id: req.user.id });
@@ -263,8 +276,6 @@ app.post("/reset-month", authenticateToken, async (req, res) => {
   await Transaction.deleteMany({ user_id: req.user.id });
   res.send({ message: "Monthly reset completed" });
 });
-
-/* ================= MONTHLY ================= */
 
 app.get("/monthly-summary", authenticateToken, async (req, res) => {
   try {
@@ -310,8 +321,6 @@ app.get("/monthly-details/:month", authenticateToken, async (req, res) => {
   res.send({ transactions: data });
 });
 
-/* ================= EXPORT ================= */
-
 app.get("/export-month/:month", authenticateToken, async (req, res) => {
   const data = await Backup.find({
     user_id: req.user.id,
@@ -339,8 +348,6 @@ app.get("/export-month/:month", authenticateToken, async (req, res) => {
   await workbook.xlsx.write(res);
   res.end();
 });
-
-/* ================= DELETE ================= */
 
 app.delete("/transactions/:id", authenticateToken, async (req, res) => {
   const result = await Transaction.deleteOne({
