@@ -5,6 +5,7 @@ import {
   Gamepad2,
   GraduationCap,
   HeartPulse,
+  Pencil,
   ShoppingBag,
   Trash2,
   Utensils,
@@ -23,12 +24,8 @@ const categoryConfig = {
 };
 
 const TransactionItem = (props) => {
-  const { transactionDetails, deleteTransaction } = props;
+  const { transactionDetails, deleteTransaction, editTransaction } = props;
   const { _id, title, amount, type, created_at, category } = transactionDetails;
-
-  const onDeleteTransaction = () => {
-    deleteTransaction(_id);
-  };
 
   const config = categoryConfig[category] || {
     Icon: CircleDollarSign,
@@ -72,15 +69,23 @@ const TransactionItem = (props) => {
         </span>
       </div>
 
-      <div className="delete-container">
+      <div className="transaction-actions">
+        <button
+          className="edit-button"
+          type="button"
+          onClick={() => editTransaction(transactionDetails)}
+          aria-label={`Edit ${title}`}
+        >
+          <Pencil size={18} strokeWidth={2.2} />
+        </button>
         <button
           className="delete-button"
           type="button"
-          onClick={onDeleteTransaction}
+          onClick={() => deleteTransaction(_id)}
           data-testid="delete"
           aria-label={`Delete ${title}`}
         >
-          <Trash2 size={19} strokeWidth={2.2} />
+          <Trash2 size={18} strokeWidth={2.2} />
         </button>
       </div>
     </li>
