@@ -1,61 +1,122 @@
-import { Link, Navigate } from "react-router-dom";
-import Cookies from "js-cookie";
-import { Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
+import { Link, Navigate, useNavigate } from "react-router-dom";
+import Cookies from "js-cookie";
+import {
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  LoaderCircle,
+  LockKeyhole,
+  Mail,
+  User,
+  UserRound,
+} from "lucide-react";
 import "./index.css";
 
+const API_URL = "https://money-manager-wmon.onrender.com/register";
+
+const initialForm = {
+  name: "",
+  username: "",
+  email: "",
+  password: "",
+  confirmPassword: "",
+  gender: "",
+};
+
 const MoneyRegister = () => {
+  const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("");
-  const [userInfo, setUserInfo] = useState({
-    name: "",
-    username: "",
-    email: "",
-    password: "",
-    gender: "",
-  });
+  const [userInfo, setUserInfo] = useState(initialForm);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
-    setUserInfo((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setMessage("");
+    setMessageType("");
+    setUserInfo((prev) => ({ ...prev, [name]: value }));
   };
 
-  const showpassword = () => {
-    setShowPassword((prevState) => !prevState);
+  const validateForm = () => {
+    const cleanName = userInfo.name.trim();
+    const cleanUsername = userInfo.username.trim();
+    const cleanEmail = userInfo.email.trim();
+
+    if (!cleanName || !cleanUsername || !cleanEmail || !userInfo.password || !userInfo.gender) {
+      return "Please complete all required fields.";
+    }
+
+    if (!/^\S+@\S+\.\S+$/.test(cleanEmail)) {
+      return "Please enter a valid email address.";
+    }
+
+    if (userInfo.password.length < 8) {
+      return "Password must be at least 8 characters.";
+    }
+
+    if (userInfo.password !== userInfo.confirmPassword) {
+      return "Passwords do not match.";
+    }
+
+    return "";
   };
 
-  const signInForm = async (event) => {
+  const signUpForm = async (event) => {
     event.preventDefault();
 
-    const url = "https://money-manager-wmon.onrender.com/register";
-    const options = {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(userInfo),
-    };
-
-    const response = await fetch(url, options);
-    const data = await response.json();
-    if (response.ok === true) {
-      setMessageType("success-message");
-      setUserInfo({
-        name: "",
-        username: "",
-        email: "",
-        password: "",
-        gender: "",
-      });
-    } else {
+    const validationError = validateForm();
+    if (validationError) {
       setMessageType("error-message");
+      setMessage(validationError);
+      return;
     }
-    setMessage(data.message);
-    console.log(response);
+
+    setLoading(true);
+    setMessage("");
+    setMessageType("");
+
+    try {
+      const payload = {
+        name: userInfo.name.trim(),
+        username: userInfo.username.trim(),
+        email: userInfo.email.trim().toLowerCase(),
+        password: userInfo.password,
+        gender: userInfo.gender,
+      };
+
+      const response = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data.message || data.error || "Unable to create your account.");
+      }
+
+      setMessageType("success-message");
+      setMessage(data.message || "Account created successfully. Redirecting to sign in...");
+      setUserInfo(initialForm);
+
+      setTimeout(() => {
+        navigate("/login", { replace: true });
+      }, 1200);
+    } catch (error) {
+      const isNetworkError = error instanceof TypeError;
+      setMessageType("error-message");
+      setMessage(
+        isNetworkError
+          ? "Unable to reach the server. Check your internet connection and try again."
+          : error.message,
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   const token = Cookies.get("jwt_token");
@@ -64,118 +125,193 @@ const MoneyRegister = () => {
   }
 
   return (
-    <div className="moneysignup-container">
-      <div className="moneysignup-form-container">
-        <h1 className="moneysignup-logo">Money Manager</h1>
-        <h1 className="sign-up-header">Sign Up</h1>
-        <p className="sign-in-subheader">
-          Create an account or{" "}
-          <Link to="/login" className="sign-in-link">
-            Sign in
-          </Link>
-        </p>
-        <form className="moneysignup-form" onSubmit={signInForm}>
-          <div className="moneysignup-input-container">
-            <label htmlFor="name" className="input-label">
-              Name
-            </label>
-            <input
-              type="text"
-              id="name"
-              name="name"
-              value={userInfo.name}
-              placeholder="name"
-              className="moneysignup-input"
-              onChange={handleChange}
-            />
+    <main className="signup-page">
+      <section className="signup-showcase" aria-hidden="true">
+        <div className="signup-brand-mark">MM</div>
+        <div className="signup-showcase-copy">
+          <span className="signup-kicker">Money Manager</span>
+          <h1>Start building better money habits.</h1>
+          <p>
+            Create your account to track income, expenses, savings and monthly trends in one place.
+          </p>
+          <div className="signup-benefits">
+            <div><CheckCircle2 size={18} /> Simple transaction tracking</div>
+            <div><CheckCircle2 size={18} /> Clear spending analytics</div>
+            <div><CheckCircle2 size={18} /> Secure personal account</div>
           </div>
-          <div className="moneysignup-input-container">
-            <label htmlFor="username" className="input-label">
-              Username
-            </label>
-            <input
-              type="text"
-              id="username"
-              name="username"
-              value={userInfo.username}
-              placeholder="username"
-              className="moneysignup-input"
-              onChange={handleChange}
-            />
+        </div>
+      </section>
+
+      <section className="signup-form-side">
+        <div className="moneysignup-form-container">
+          <div className="signup-mobile-brand">Money Manager</div>
+          <div className="signup-heading-block">
+            <p className="signup-eyebrow">Create account</p>
+            <h2 className="sign-up-header">Sign up for Money Manager</h2>
+            <p className="sign-in-subheader">
+              Already have an account? <Link to="/login" className="sign-in-link">Sign in</Link>
+            </p>
           </div>
-          <div className="moneysignup-input-container">
-            <label htmlFor="email" className="input-label">
-              Email
-            </label>
-            <input
-              type="text"
-              id="email"
-              name="email"
-              value={userInfo.email}
-              placeholder="email"
-              className="moneysignup-input"
-              onChange={handleChange}
-            />
-          </div>
-          <div className="moneysignup-input-container">
-            <label htmlFor="password" className="input-label">
-              Password
-            </label>
-            <div className="moneysignup-password-container">
-              <input
-                type={showPassword ? "text" : "password"}
-                id="password"
-                name="password"
-                placeholder="password"
-                value={userInfo.password}
-                className="moneysignup-password-input"
-                onChange={handleChange}
-              />
-              <button
-                type="button"
-                className="password-eye-icon"
-                onClick={showpassword}
-              >
-                {showPassword ? (
-                  <Eye size={20} className="eye-icon" />
-                ) : (
-                  <EyeOff size={20} className="eye-icon" />
-                )}
-              </button>
-            </div>
-          </div>
-          <div className="moneysignup-input-container">
-            <label htmlFor="gender" className="input-label">
-              Gender
-            </label>
-            <div className="gender-radio-container">
-              {["Male", "Female", "Other"].map((g) => (
-                <div key={g} className="gender-radio-option-container">
+
+          <form className="moneysignup-form" onSubmit={signUpForm} noValidate>
+            <div className="signup-grid">
+              <label className="moneysignup-input-container" htmlFor="name">
+                <span className="input-label">Full name</span>
+                <div className="signup-input-shell">
+                  <UserRound size={18} />
                   <input
-                    type="radio"
-                    id={g}
-                    name="gender"
-                    value={g}
-                    checked={userInfo.gender === g}
+                    type="text"
+                    id="name"
+                    name="name"
+                    value={userInfo.name}
+                    placeholder="Enter your full name"
+                    className="moneysignup-input"
                     onChange={handleChange}
-                    className="radio-input"
+                    autoComplete="name"
+                    disabled={loading}
+                    required
                   />
-                  <label htmlFor={g} className="input-label">
-                    {g.charAt(0).toUpperCase() + g.slice(1)}
-                  </label>
                 </div>
-              ))}
+              </label>
+
+              <label className="moneysignup-input-container" htmlFor="username">
+                <span className="input-label">Username</span>
+                <div className="signup-input-shell">
+                  <User size={18} />
+                  <input
+                    type="text"
+                    id="username"
+                    name="username"
+                    value={userInfo.username}
+                    placeholder="Choose a username"
+                    className="moneysignup-input"
+                    onChange={handleChange}
+                    autoComplete="username"
+                    disabled={loading}
+                    required
+                  />
+                </div>
+              </label>
             </div>
-          </div>
-          <div>
-            <button type="submit" className="moneysignup-button">
-              Sign Up
+
+            <label className="moneysignup-input-container" htmlFor="email">
+              <span className="input-label">Email address</span>
+              <div className="signup-input-shell">
+                <Mail size={18} />
+                <input
+                  type="email"
+                  id="email"
+                  name="email"
+                  value={userInfo.email}
+                  placeholder="you@example.com"
+                  className="moneysignup-input"
+                  onChange={handleChange}
+                  autoComplete="email"
+                  inputMode="email"
+                  disabled={loading}
+                  required
+                />
+              </div>
+            </label>
+
+            <div className="signup-grid">
+              <label className="moneysignup-input-container" htmlFor="password">
+                <span className="input-label">Password</span>
+                <div className="signup-input-shell signup-password-shell">
+                  <LockKeyhole size={18} />
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    id="password"
+                    name="password"
+                    value={userInfo.password}
+                    placeholder="At least 8 characters"
+                    className="moneysignup-input"
+                    onChange={handleChange}
+                    autoComplete="new-password"
+                    disabled={loading}
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="password-eye-icon"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    disabled={loading}
+                  >
+                    {showPassword ? <Eye size={19} /> : <EyeOff size={19} />}
+                  </button>
+                </div>
+              </label>
+
+              <label className="moneysignup-input-container" htmlFor="confirmPassword">
+                <span className="input-label">Confirm password</span>
+                <div className="signup-input-shell signup-password-shell">
+                  <LockKeyhole size={18} />
+                  <input
+                    type={showConfirmPassword ? "text" : "password"}
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    value={userInfo.confirmPassword}
+                    placeholder="Repeat your password"
+                    className="moneysignup-input"
+                    onChange={handleChange}
+                    autoComplete="new-password"
+                    disabled={loading}
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="password-eye-icon"
+                    onClick={() => setShowConfirmPassword((prev) => !prev)}
+                    aria-label={showConfirmPassword ? "Hide confirmation password" : "Show confirmation password"}
+                    disabled={loading}
+                  >
+                    {showConfirmPassword ? <Eye size={19} /> : <EyeOff size={19} />}
+                  </button>
+                </div>
+              </label>
+            </div>
+
+            <fieldset className="gender-fieldset" disabled={loading}>
+              <legend className="input-label">Gender</legend>
+              <div className="gender-radio-container">
+                {["Male", "Female", "Others"].map((gender) => (
+                  <label key={gender} className={`gender-radio-option-container ${userInfo.gender === gender ? "selected" : ""}`}>
+                    <input
+                      type="radio"
+                      name="gender"
+                      value={gender}
+                      checked={userInfo.gender === gender}
+                      onChange={handleChange}
+                      className="radio-input"
+                    />
+                    <span>{gender}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+
+            {message && (
+              <div className={`signup-message ${messageType}`} role="status">
+                {message}
+              </div>
+            )}
+
+            <button type="submit" className="moneysignup-button" disabled={loading}>
+              {loading ? (
+                <>
+                  <LoaderCircle size={19} className="signup-spinner" /> Creating account...
+                </>
+              ) : (
+                "Create account"
+              )}
             </button>
-          </div>
-          <p className={messageType}>{message}</p>
-        </form>
-      </div>
-    </div>
+          </form>
+
+          <p className="signup-footer-note">By creating an account, you can securely access your personal Money Manager dashboard.</p>
+        </div>
+      </section>
+    </main>
   );
 };
 
