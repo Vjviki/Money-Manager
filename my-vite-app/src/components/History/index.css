@@ -3,8 +3,13 @@
 .history-page-heading p { margin: 0 0 5px; color: #7c3aed; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
 .history-page-heading h1 { margin: 0; font-size: clamp(26px, 3vw, 36px); }
 .history-page-heading span { display: block; margin-top: 7px; color: var(--text-secondary); }
+.history-heading-actions { display: flex; align-items: center; gap: 10px; }
 .history-count { padding: 9px 13px; border-radius: 999px; background: #ede9fe; color: #7c3aed; font-size: 12px; font-weight: 800; white-space: nowrap; }
 .dark-theme .history-count { background: #3b2c66; color: #ddd6fe; }
+.reset-month-btn { height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 0 15px; border: 1px solid #fecaca; border-radius: 10px; background: #fff1f2; color: #dc2626; font-weight: 800; cursor: pointer; white-space: nowrap; }
+.reset-month-btn:hover { background: #ffe4e6; }
+.reset-month-btn:disabled { opacity: .55; cursor: wait; }
+.dark-theme .reset-month-btn { background: rgba(127,29,29,.28); border-color: #7f1d1d; color: #fca5a5; }
 .history-panel { padding: 20px; margin-bottom: 18px; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 18px; box-shadow: 0 8px 26px var(--shadow-color); }
 .history-toolbar-title { display: flex; align-items: center; gap: 8px; margin-bottom: 13px; font-weight: 800; }
 .history-toolbar { display: grid; grid-template-columns: minmax(230px, 1.6fr) repeat(4, minmax(130px, .8fr)) auto; gap: 10px; }
@@ -12,7 +17,7 @@
 .history-search { position: relative; }
 .history-search svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); }
 .history-search input { padding-left: 38px; }
-.clear-filter-btn { height: 42px; padding: 0 16px; border: 1px solid #ddd6fe; border-radius: 10px; background: #f5f3ff; color: #7c3aed; font-weight: 800; cursor: pointer; }
+.clear-filter-btn { height: 42px; padding: 0 16px; border: 1px solid #ddd6fe; border-radius: 10px; background: #f5f3ff; color: #7c3aed; font-weight: 800; cursor: pointer; white-space: nowrap; }
 .dark-theme .clear-filter-btn { background: #33245c; border-color: #5b4a85; color: #ddd6fe; }
 .history-records-panel { overflow: hidden; }
 .history-table-head { display: grid; grid-template-columns: 110px minmax(210px, 1.7fr) minmax(120px, .9fr) minmax(110px, .8fr) 72px; gap: 16px; padding: 13px 18px; margin-bottom: 10px; border-radius: 12px; background: var(--surface-alt); color: var(--text-secondary); font-size: 12px; font-weight: 800; }
@@ -23,5 +28,5 @@
 .history-pagination button:disabled { opacity: .4; cursor: not-allowed; }
 .history-pagination span { color: var(--text-secondary); font-size: 13px; }
 @media (max-width: 1000px) { .history-toolbar { grid-template-columns: 1fr 1fr 1fr; } .history-search { grid-column: span 2; } }
-@media (max-width: 767px) { .history-page { width: min(100% - 28px, 680px); padding: 22px 0 94px; } .history-page-heading { align-items: flex-start; } .history-page-heading span { font-size: 13px; } .history-panel { padding: 14px; border-radius: 16px; } .history-toolbar { grid-template-columns: 1fr 1fr; } .history-search { grid-column: 1 / -1; } .clear-filter-btn { grid-column: 1 / -1; } .history-table-head { display: none; } }
-@media (max-width: 430px) { .history-count { display: none; } .history-toolbar { grid-template-columns: 1fr; } .history-search, .clear-filter-btn { grid-column: auto; } }
+@media (max-width: 767px) { .history-page { width: min(100% - 28px, 680px); padding: 22px 0 94px; } .history-page-heading { align-items: flex-start; flex-direction: column; } .history-page-heading span { font-size: 13px; } .history-heading-actions { width: 100%; justify-content: space-between; } .history-panel { padding: 14px; border-radius: 16px; } .history-toolbar { grid-template-columns: 1fr 1fr; } .history-search { grid-column: 1 / -1; } .clear-filter-btn { grid-column: 1 / -1; } .history-table-head { display: none; } }
+@media (max-width: 430px) { .history-heading-actions { align-items: stretch; } .history-count { display: none; } .reset-month-btn { width: 100%; } .history-toolbar { grid-template-columns: 1fr; } .history-search, .clear-filter-btn { grid-column: auto; } }
