@@ -20,6 +20,34 @@ import "./index.css";
 
 const API = "https://money-manager-wmon.onrender.com";
 
+ const PasswordInput = ({ label, name, visibilityKey, placeholder }) => (
+    <label className="profile-password-field">
+      <span>{label}</span>
+      <div className="profile-password-input-wrap">
+        <input
+          name={name}
+          type={showPasswords[visibilityKey] ? "text" : "password"}
+          value={passwordForm[name]}
+          onChange={updatePasswordField}
+          placeholder={placeholder}
+          autoComplete={name === "currentPassword" ? "current-password" : "new-password"}
+        />
+        <button
+          type="button"
+          aria-label={showPasswords[visibilityKey] ? `Hide ${label}` : `Show ${label}`}
+          onClick={() =>
+            setShowPasswords((prev) => ({
+              ...prev,
+              [visibilityKey]: !prev[visibilityKey],
+            }))
+          }
+        >
+          {showPasswords[visibilityKey] ? <EyeOff size={18} /> : <Eye size={18} />}
+        </button>
+      </div>
+    </label>
+  );
+
 const UserProfile = () => {
   const [userData, setUserData] = useState({});
   const [summary, setSummary] = useState({ balance: 0, income: 0, expenses: 0 });
@@ -206,33 +234,6 @@ const UserProfile = () => {
     }
   };
 
-  const PasswordInput = ({ label, name, visibilityKey, placeholder }) => (
-    <label className="profile-password-field">
-      <span>{label}</span>
-      <div className="profile-password-input-wrap">
-        <input
-          name={name}
-          type={showPasswords[visibilityKey] ? "text" : "password"}
-          value={passwordForm[name]}
-          onChange={updatePasswordField}
-          placeholder={placeholder}
-          autoComplete={name === "currentPassword" ? "current-password" : "new-password"}
-        />
-        <button
-          type="button"
-          aria-label={showPasswords[visibilityKey] ? `Hide ${label}` : `Show ${label}`}
-          onClick={() =>
-            setShowPasswords((prev) => ({
-              ...prev,
-              [visibilityKey]: !prev[visibilityKey],
-            }))
-          }
-        >
-          {showPasswords[visibilityKey] ? <EyeOff size={18} /> : <Eye size={18} />}
-        </button>
-      </div>
-    </label>
-  );
 
   if (loading) {
     return (
