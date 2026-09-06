@@ -171,6 +171,43 @@ app.put("/profile", authenticateToken, async (req, res) => {
   }
 });
 
+app.put("/change-password", authenticateToken, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).send({ error: "Current and new password are required" });
+    }
+
+    if (String(newPassword).length < 8) {
+      return res.status(400).send({ error: "New password must be at least 8 characters" });
+    }
+
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).send({ error: "User not found" });
+    }
+
+    const matches = await bcrypt.compare(currentPassword, user.password);
+    if (!matches) {
+      return res.status(400).send({ error: "Current password is incorrect" });
+    }
+
+    const samePassword = await bcrypt.compare(newPassword, user.password);
+    if (samePassword) {
+      return res.status(400).send({ error: "New password must be different from your current password" });
+    }
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    await user.save();
+
+    res.send({ message: "Password changed successfully" });
+  } catch (error) {
+    console.error("Change password error:", error);
+    res.status(500).send({ error: "Unable to change password" });
+  }
+});
+
 app.post("/", authenticateToken, async (req, res) => {
   const { title, amount, type, category, created_at } = req.body;
 
