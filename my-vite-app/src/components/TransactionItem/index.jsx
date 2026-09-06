@@ -1,37 +1,86 @@
+import {
+  Banknote,
+  Car,
+  CircleDollarSign,
+  Gamepad2,
+  GraduationCap,
+  HeartPulse,
+  ShoppingBag,
+  Trash2,
+  Utensils,
+} from "lucide-react";
+
 import "./index.css";
+
+const categoryConfig = {
+  Food: { Icon: Utensils, className: "category-food" },
+  Entertainment: { Icon: Gamepad2, className: "category-entertainment" },
+  Medical: { Icon: HeartPulse, className: "category-medical" },
+  Transport: { Icon: Car, className: "category-transport" },
+  Education: { Icon: GraduationCap, className: "category-education" },
+  Shopping: { Icon: ShoppingBag, className: "category-shopping" },
+  Salary: { Icon: Banknote, className: "category-salary" },
+};
 
 const TransactionItem = (props) => {
   const { transactionDetails, deleteTransaction } = props;
   const { _id, title, amount, type, created_at, category } = transactionDetails;
+
   const onDeleteTransaction = () => {
     deleteTransaction(_id);
   };
 
+  const config = categoryConfig[category] || {
+    Icon: CircleDollarSign,
+    className: "category-other",
+  };
+  const CategoryIcon = config.Icon;
+
+  const transactionDate = new Date(created_at);
+  const day = transactionDate.toLocaleDateString("en-IN", { day: "2-digit" });
+  const monthYear = transactionDate.toLocaleDateString("en-IN", {
+    month: "short",
+    year: "numeric",
+  });
+
+  const isIncome = type === "Income";
+
   return (
     <li className="table-row">
-      <p className="transaction-text">{title}</p>
-      <p className="transaction-text">{category}</p>
-      <p className="transaction-text">Rs {amount}</p>
-      <p
-        className={`transaction-text ${
-          type === "Income" ? "green-text" : "red-text"
-        }`}
-      >
-        {type}
+      <div className="transaction-date-cell">
+        <span className="transaction-day">{day}</span>
+        <span className="transaction-month-year">{monthYear}</span>
+      </div>
+
+      <div className="transaction-title-cell">
+        <div className={`category-icon-wrap ${config.className}`}>
+          <CategoryIcon size={20} strokeWidth={2.2} />
+        </div>
+        <div className="transaction-title-content">
+          <p className="transaction-title">{title}</p>
+          <span className={`category-badge ${config.className}`}>{category}</span>
+        </div>
+      </div>
+
+      <p className={`transaction-amount ${isIncome ? "income-amount" : "expense-amount"}`}>
+        ₹ {Number(amount).toLocaleString("en-IN")}
       </p>
-      <p className="transaction-text">{new Date(created_at).toLocaleDateString("en-IN")}</p>
+
+      <div className="transaction-type-cell">
+        <span className={`type-badge ${isIncome ? "income-badge" : "expense-badge"}`}>
+          {isIncome ? "Income" : "Expense"}
+        </span>
+      </div>
+
       <div className="delete-container">
         <button
           className="delete-button"
           type="button"
           onClick={onDeleteTransaction}
           data-testid="delete"
+          aria-label={`Delete ${title}`}
         >
-          <img
-            className="delete-img"
-            src="https://assets.ccbp.in/frontend/react-js/money-manager/delete.png"
-            alt="delete"
-          />
+          <Trash2 size={19} strokeWidth={2.2} />
         </button>
       </div>
     </li>
