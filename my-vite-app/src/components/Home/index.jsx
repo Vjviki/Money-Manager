@@ -6,6 +6,8 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   CalendarDays,
+  Eye,
+  EyeOff,
   Plus,
   Wallet,
 } from "lucide-react";
@@ -23,6 +25,7 @@ const Home = () => {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [showPrivateAmounts, setShowPrivateAmounts] = useState(true);
   const [form, setForm] = useState({ title: "", category: "Food", amount: "", date: new Date().toISOString().slice(0, 10), type: "Income" });
 
   const token = Cookies.get("jwt_token");
@@ -81,6 +84,7 @@ const Home = () => {
 
   const recentTransactions = [...transactions].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 5);
   const formatMoney = (value) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(Number(value || 0));
+  const privateMoney = (value) => showPrivateAmounts ? formatMoney(value) : "₹ ••••••";
 
   return (
     <div className="home-page">
@@ -94,8 +98,14 @@ const Home = () => {
       ) : (
         <>
           <section className="summary-grid">
-            <article className="summary-card balance-card"><div className="summary-icon balance-icon"><Wallet size={22} /></div><div><span>Total Balance</span><strong>{formatMoney(summary.balance)}</strong></div></article>
-            <article className="summary-card"><div className="summary-icon income-icon"><ArrowUpRight size={22} /></div><div><span>Monthly Income</span><strong className="income-value">{formatMoney(summary.income)}</strong></div></article>
+            <article className="summary-card balance-card">
+              <div className="summary-icon balance-icon"><Wallet size={22} /></div>
+              <div className="summary-content"><span>Total Balance</span><strong>{privateMoney(summary.balance)}</strong></div>
+              <button className="amount-visibility-button" type="button" onClick={() => setShowPrivateAmounts((prev) => !prev)} aria-label={showPrivateAmounts ? "Hide balance and monthly income" : "Show balance and monthly income"} title={showPrivateAmounts ? "Hide amounts" : "Show amounts"}>
+                {showPrivateAmounts ? <Eye size={20} /> : <EyeOff size={20} />}
+              </button>
+            </article>
+            <article className="summary-card"><div className="summary-icon income-icon"><ArrowUpRight size={22} /></div><div><span>Monthly Income</span><strong className="income-value">{privateMoney(summary.income)}</strong></div></article>
             <article className="summary-card"><div className="summary-icon expense-icon"><ArrowDownRight size={22} /></div><div><span>Monthly Expenses</span><strong className="expense-value">{formatMoney(summary.expenses)}</strong></div></article>
           </section>
 
