@@ -45,6 +45,7 @@
 }
 
 .summary-card {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 14px;
@@ -58,6 +59,26 @@
 
 .summary-card span { display: block; color: var(--text-secondary); font-size: 13px; margin-bottom: 7px; }
 .summary-card strong { display: block; font-size: clamp(20px, 2.4vw, 28px); }
+.summary-content { min-width: 0; flex: 1; }
+
+.amount-visibility-button {
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  margin-left: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--surface-alt);
+  color: #7c3aed;
+  cursor: pointer;
+  transition: transform .18s ease, background .18s ease, border-color .18s ease;
+}
+.amount-visibility-button:hover { transform: translateY(-1px); border-color: #8b5cf6; background: #f5f3ff; }
+.amount-visibility-button:focus-visible { outline: 3px solid rgba(139,92,246,.22); outline-offset: 2px; }
+.dark-theme .amount-visibility-button:hover { background: rgba(124,58,237,.18); }
 
 .summary-icon {
   width: 50px;
@@ -195,6 +216,7 @@
   .summary-icon { width: 42px; height: 42px; min-width: 42px; border-radius: 13px; }
   .summary-card strong { font-size: 18px; }
   .summary-card span { font-size: 11px; }
+  .amount-visibility-button { width: 34px; height: 34px; min-width: 34px; border-radius: 10px; }
   .home-hero-card { padding: 22px; border-radius: 18px; }
   .home-hero-card h2 { font-size: 27px; }
   .home-card { padding: 17px; border-radius: 16px; }
