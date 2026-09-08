@@ -25,7 +25,7 @@ const Home = () => {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [showPrivateAmounts, setShowPrivateAmounts] = useState(true);
+  const [showPrivateAmounts, setShowPrivateAmounts] = useState(false);
   const [form, setForm] = useState({ title: "", category: "Food", amount: "", date: new Date().toISOString().slice(0, 10), type: "Income" });
 
   const token = Cookies.get("jwt_token");
