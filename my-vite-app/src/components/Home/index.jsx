@@ -89,8 +89,24 @@ const Home = () => {
   return (
     <div className="home-page">
       <section className="home-greeting">
-        <div><p className="home-eyebrow">Money Manager</p><h1>Good to see you, {profile.name || "there"} 👋</h1><p>Track today, build tomorrow.</p></div>
-        <div className="home-date-pill"><CalendarDays size={18} />{new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</div>
+        <div>
+          <p className="home-eyebrow">Money Manager</p>
+          <h1>Good to see you, {profile.name || "there"} 👋</h1>
+          <p>Track today, build tomorrow.</p>
+        </div>
+        <div className="home-heading-actions">
+          <button
+            className="home-privacy-button"
+            type="button"
+            onClick={() => setShowPrivateAmounts((prev) => !prev)}
+            aria-label={showPrivateAmounts ? "Hide financial amounts" : "Show financial amounts"}
+            title={showPrivateAmounts ? "Hide amounts" : "Show amounts"}
+          >
+            {showPrivateAmounts ? <Eye size={18} /> : <EyeOff size={18} />}
+            {showPrivateAmounts ? "Hide Amounts" : "Show Amounts"}
+          </button>
+          <div className="home-date-pill"><CalendarDays size={18} />{new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</div>
+        </div>
       </section>
 
       {loading ? (
@@ -101,12 +117,9 @@ const Home = () => {
             <article className="summary-card balance-card">
               <div className="summary-icon balance-icon"><Wallet size={22} /></div>
               <div className="summary-content"><span>Total Balance</span><strong>{privateMoney(summary.balance)}</strong></div>
-              <button className="amount-visibility-button" type="button" onClick={() => setShowPrivateAmounts((prev) => !prev)} aria-label={showPrivateAmounts ? "Hide balance and monthly income" : "Show balance and monthly income"} title={showPrivateAmounts ? "Hide amounts" : "Show amounts"}>
-                {showPrivateAmounts ? <Eye size={20} /> : <EyeOff size={20} />}
-              </button>
             </article>
             <article className="summary-card"><div className="summary-icon income-icon"><ArrowUpRight size={22} /></div><div><span>Monthly Income</span><strong className="income-value">{privateMoney(summary.income)}</strong></div></article>
-            <article className="summary-card"><div className="summary-icon expense-icon"><ArrowDownRight size={22} /></div><div><span>Monthly Expenses</span><strong className="expense-value">{formatMoney(summary.expenses)}</strong></div></article>
+            <article className="summary-card"><div className="summary-icon expense-icon"><ArrowDownRight size={22} /></div><div><span>Monthly Expenses</span><strong className="expense-value">{privateMoney(summary.expenses)}</strong></div></article>
           </section>
 
           <section className="home-hero-card"><div><span className="hero-kicker">Your financial command center</span><h2>Manage your money smarter.</h2><p>Record every transaction, watch your spending, and make better decisions month by month.</p></div><div className="hero-symbols" aria-hidden="true"><div>₹</div><div>↗</div><div>✓</div></div></section>
@@ -131,7 +144,7 @@ const Home = () => {
                   <div className={`recent-type-icon ${transaction.type === "Income" ? "recent-income-icon" : "recent-expense-icon"}`}>{transaction.type === "Income" ? <ArrowUpRight size={18} /> : <ArrowDownRight size={18} />}</div>
                   <div className="recent-main"><strong>{transaction.title}</strong><span>{transaction.category}</span></div>
                   <span className="recent-date">{new Date(transaction.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span>
-                  <strong className={transaction.type === "Income" ? "income-value" : "expense-value"}>{transaction.type === "Income" ? "+ " : "- "}{formatMoney(transaction.amount)}</strong>
+                  <strong className={transaction.type === "Income" ? "income-value" : "expense-value"}>{transaction.type === "Income" ? "+ " : "- "}{privateMoney(transaction.amount)}</strong>
                 </div>
               ))}
             </div>
