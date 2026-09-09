@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import Cookies from "js-cookie";
 import { Capacitor } from "@capacitor/core";
 import { Filesystem, Directory } from "@capacitor/filesystem";
-import { Download, TrendingUp, WalletCards, X } from "lucide-react";
+import { Download, Eye, EyeOff, TrendingUp, WalletCards, X } from "lucide-react";
 import {
   BarChart,
   Bar,
@@ -30,6 +30,7 @@ const Analytics = () => {
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [showPrivateAmounts, setShowPrivateAmounts] = useState(false);
 
   const token = Cookies.get("jwt_token");
   const headers = { Authorization: `Bearer ${token}` };
@@ -69,6 +70,8 @@ const Analytics = () => {
 
   const formatMoney = (value) =>
     new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(Number(value || 0));
+
+  const privateMoney = (value) => showPrivateAmounts ? formatMoney(value) : "₹ ••••••";
 
   const openDetails = async (month) => {
     setSelectedMonth(month);
@@ -140,6 +143,16 @@ const Analytics = () => {
           <h1>Financial Analytics</h1>
           <span>Understand spending patterns, savings and archived monthly performance.</span>
         </div>
+        <button
+          className="analytics-privacy-button"
+          type="button"
+          onClick={() => setShowPrivateAmounts((prev) => !prev)}
+          aria-label={showPrivateAmounts ? "Hide financial amounts" : "Show financial amounts"}
+          title={showPrivateAmounts ? "Hide amounts" : "Show amounts"}
+        >
+          {showPrivateAmounts ? <Eye size={18} /> : <EyeOff size={18} />}
+          {showPrivateAmounts ? "Hide Amounts" : "Show Amounts"}
+        </button>
       </div>
 
       {loading ? (
@@ -155,7 +168,7 @@ const Analytics = () => {
                   {item.name === "Balance" ? <WalletCards size={20} /> : <TrendingUp size={20} />}
                 </div>
                 <span>{item.name}</span>
-                <strong className={item.name === "Expenses" ? "expense-metric" : item.name === "Income" ? "income-metric" : ""}>{formatMoney(item.amount)}</strong>
+                <strong className={item.name === "Expenses" ? "expense-metric" : item.name === "Income" ? "income-metric" : ""}>{privateMoney(item.amount)}</strong>
               </article>
             ))}
           </section>
@@ -167,8 +180,8 @@ const Analytics = () => {
                 <BarChart data={summaryData} margin={{ top: 10, right: 8, left: -12, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.25} />
                   <XAxis dataKey="name" tickLine={false} axisLine={false} />
-                  <YAxis tickLine={false} axisLine={false} />
-                  <Tooltip formatter={(value) => formatMoney(value)} />
+                  <YAxis tickLine={false} axisLine={false} tickFormatter={(value) => showPrivateAmounts ? value : "•••"} />
+                  <Tooltip formatter={(value) => privateMoney(value)} />
                   <Bar dataKey="amount" fill="#7c3aed" radius={[8, 8, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -182,7 +195,7 @@ const Analytics = () => {
                     <Pie data={categoryData} dataKey="total" nameKey="category" innerRadius="42%" outerRadius="76%" paddingAngle={2}>
                       {categoryData.map((_, index) => <Cell key={index} fill={COLORS[index % COLORS.length]} />)}
                     </Pie>
-                    <Tooltip formatter={(value) => formatMoney(value)} />
+                    <Tooltip formatter={(value) => privateMoney(value)} />
                   </PieChart>
                 </ResponsiveContainer>
               ) : <div className="analytics-empty">No expense data available yet.</div>}
@@ -195,7 +208,7 @@ const Analytics = () => {
               {monthlyData.length ? monthlyData.map((item) => (
                 <article className="month-card-modern" key={item.month}>
                   <div><span>Month</span><h3>{item.month}</h3></div>
-                  <div className="month-metrics"><span>Expenses <strong className="expense-metric">{formatMoney(item.expenses)}</strong></span><span>Savings <strong className={item.savings >= 0 ? "income-metric" : "expense-metric"}>{formatMoney(item.savings)}</strong></span></div>
+                  <div className="month-metrics"><span>Expenses <strong className="expense-metric">{privateMoney(item.expenses)}</strong></span><span>Savings <strong className={item.savings >= 0 ? "income-metric" : "expense-metric"}>{privateMoney(item.savings)}</strong></span></div>
                   <button onClick={() => openDetails(item.month)}>View Details</button>
                 </article>
               )) : <div className="analytics-empty">No archived months yet. Use Reset Month from History when you close a month.</div>}
@@ -214,12 +227,12 @@ const Analytics = () => {
             {detailLoading ? <LoadingState variant="list" rows={4} label="Loading monthly details..." /> : (
               <>
                 <div className="drawer-stat-grid">
-                  <div><span>Income</span><strong className="income-metric">{formatMoney(detailStats.income)}</strong></div>
-                  <div><span>Expenses</span><strong className="expense-metric">{formatMoney(detailStats.expenses)}</strong></div>
-                  <div><span>Savings</span><strong>{formatMoney(detailStats.savings)}</strong></div>
+                  <div><span>Income</span><strong className="income-metric">{privateMoney(detailStats.income)}</strong></div>
+                  <div><span>Expenses</span><strong className="expense-metric">{privateMoney(detailStats.expenses)}</strong></div>
+                  <div><span>Savings</span><strong>{privateMoney(detailStats.savings)}</strong></div>
                 </div>
-                <div className="drawer-section"><h3>Transactions</h3><div className="drawer-transactions">{monthDetails.length ? monthDetails.map((item) => <div className="drawer-row" key={item._id}><div><strong>{item.title}</strong><span>{item.category || "Other"}</span></div><div><strong className={item.type === "Income" ? "income-metric" : "expense-metric"}>{item.type === "Income" ? "+ " : "- "}{formatMoney(item.amount)}</strong><span>{item.date || ""}</span></div></div>) : <div className="analytics-empty">No transaction details found.</div>}</div></div>
-                <div className="drawer-section"><h3>Expense by Category</h3>{categoryArray.length ? categoryArray.map(([name, total]) => <div className="category-row-modern" key={name}><span>{name}</span><strong>{formatMoney(total)}</strong></div>) : <div className="analytics-empty">No expense data.</div>}</div>
+                <div className="drawer-section"><h3>Transactions</h3><div className="drawer-transactions">{monthDetails.length ? monthDetails.map((item) => <div className="drawer-row" key={item._id}><div><strong>{item.title}</strong><span>{item.category || "Other"}</span></div><div><strong className={item.type === "Income" ? "income-metric" : "expense-metric"}>{item.type === "Income" ? "+ " : "- "}{privateMoney(item.amount)}</strong><span>{item.date || ""}</span></div></div>) : <div className="analytics-empty">No transaction details found.</div>}</div></div>
+                <div className="drawer-section"><h3>Expense by Category</h3>{categoryArray.length ? categoryArray.map(([name, total]) => <div className="category-row-modern" key={name}><span>{name}</span><strong>{privateMoney(total)}</strong></div>) : <div className="analytics-empty">No expense data.</div>}</div>
                 <button className="drawer-download" onClick={() => downloadMonth(selectedMonth)}><Download size={18} /> Download Excel</button>
               </>
             )}
