@@ -60,6 +60,7 @@ const UserProfile = () => {
   const [error, setError] = useState(null);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showPrivateAmounts, setShowPrivateAmounts] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", gender: "Male" });
 
   const [passwordOpen, setPasswordOpen] = useState(false);
@@ -131,6 +132,8 @@ const UserProfile = () => {
       currency: "INR",
       maximumFractionDigits: 0,
     }).format(Number(value || 0));
+
+  const privateMoney = (value) => showPrivateAmounts ? formatMoney(value) : "₹ ••••••";
 
   const memberSince = userData.created_at
     ? new Date(userData.created_at).toLocaleDateString("en-IN", {
@@ -263,9 +266,21 @@ const UserProfile = () => {
           <h1>Your Profile</h1>
           <span>Personal details, account statistics and security.</span>
         </div>
-        <button className="profile-edit-trigger" type="button" onClick={() => setEditing(true)}>
-          <Pencil size={17} /> Edit Profile
-        </button>
+        <div className="profile-heading-actions">
+          <button
+            className="profile-privacy-trigger"
+            type="button"
+            onClick={() => setShowPrivateAmounts((prev) => !prev)}
+            aria-label={showPrivateAmounts ? "Hide financial amounts" : "Show financial amounts"}
+            title={showPrivateAmounts ? "Hide amounts" : "Show amounts"}
+          >
+            {showPrivateAmounts ? <Eye size={17} /> : <EyeOff size={17} />}
+            {showPrivateAmounts ? "Hide Amounts" : "Show Amounts"}
+          </button>
+          <button className="profile-edit-trigger" type="button" onClick={() => setEditing(true)}>
+            <Pencil size={17} /> Edit Profile
+          </button>
+        </div>
       </div>
 
       <section className="profile-hero">
@@ -287,9 +302,9 @@ const UserProfile = () => {
       </section>
 
       <section className="profile-stat-grid">
-        <article><span>Total Balance</span><strong>{formatMoney(summary.balance)}</strong><WalletCards size={18} /></article>
-        <article><span>Monthly Income</span><strong className="profile-income">{formatMoney(summary.income)}</strong></article>
-        <article><span>Monthly Expenses</span><strong className="profile-expense">{formatMoney(summary.expenses)}</strong></article>
+        <article><span>Total Balance</span><strong>{privateMoney(summary.balance)}</strong><WalletCards size={18} /></article>
+        <article><span>Monthly Income</span><strong className="profile-income">{privateMoney(summary.income)}</strong></article>
+        <article><span>Monthly Expenses</span><strong className="profile-expense">{privateMoney(summary.expenses)}</strong></article>
         <article><span>Total Transactions</span><strong>{transactions.length}</strong></article>
       </section>
 
