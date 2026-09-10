@@ -28,8 +28,9 @@ const Home = () => {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [detectedTransaction, setDetectedTransaction] = useState(null);
-  const [reviewingDetected, setReviewingDetected] = useState(false);
+  const [detectedTransactions, setDetectedTransactions] = useState([]);
+  const [reviewingId, setReviewingId] = useState(null);
+  const [addingAll, setAddingAll] = useState(false);
   const [showPrivateAmounts, setShowPrivateAmounts] = useState(false);
   const [form, setForm] = useState({ title: "", category: "Food", amount: "", date: new Date().toISOString().slice(0, 10), type: "Income" });
 
@@ -57,20 +58,20 @@ const Home = () => {
     }
   };
 
-  const checkDetectedTransaction = async () => {
+  const checkDetectedTransactions = async () => {
     if (!Capacitor.isNativePlatform()) return;
     try {
-      const result = await DetectedTransaction.getPending();
-      setDetectedTransaction(result.transaction || null);
+      const result = await DetectedTransaction.getPendingQueue();
+      setDetectedTransactions(Array.isArray(result.transactions) ? result.transactions : []);
     } catch (error) {
-      console.error("Unable to read detected transaction", error);
+      console.error("Unable to read detected transactions", error);
     }
   };
 
   useEffect(() => {
     loadHome();
-    checkDetectedTransaction();
-    const onVisible = () => { if (!document.hidden) checkDetectedTransaction(); };
+    checkDetectedTransactions();
+    const onVisible = () => { if (!document.hidden) checkDetectedTransactions(); };
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, []);
@@ -103,49 +104,82 @@ const Home = () => {
     }
   };
 
-  const ignoreDetectedTransaction = async () => {
+  const buildDetectedPayload = (detectedTransaction) => {
+    const detectedDate = new Date(detectedTransaction.detectedAt || Date.now());
+    const localDate = `${detectedDate.getFullYear()}-${String(detectedDate.getMonth() + 1).padStart(2, "0")}-${String(detectedDate.getDate()).padStart(2, "0")}`;
+    const title = detectedTransaction.merchant && detectedTransaction.merchant !== "Unknown"
+      ? detectedTransaction.merchant
+      : detectedTransaction.source || "Detected transaction";
+
+    return {
+      title,
+      category: detectedTransaction.category || "Other",
+      amount: Number(detectedTransaction.amount),
+      created_at: localDate,
+      type: detectedTransaction.type || "Expenses",
+    };
+  };
+
+  const ignoreDetectedTransaction = async (id) => {
     try {
-      await DetectedTransaction.clearPending();
-      setDetectedTransaction(null);
+      setReviewingId(id);
+      await DetectedTransaction.removePending({ id });
+      setDetectedTransactions((prev) => prev.filter((item) => item.id !== id));
       toast.success("Detected transaction ignored");
     } catch (error) {
       console.error(error);
       toast.error("Unable to ignore transaction");
+    } finally {
+      setReviewingId(null);
     }
   };
 
-  const addDetectedTransaction = async () => {
-    if (!detectedTransaction) return;
+  const addDetectedTransaction = async (detectedTransaction) => {
     try {
-      setReviewingDetected(true);
-      const detectedDate = new Date(detectedTransaction.detectedAt || Date.now());
-      const localDate = `${detectedDate.getFullYear()}-${String(detectedDate.getMonth() + 1).padStart(2, "0")}-${String(detectedDate.getDate()).padStart(2, "0")}`;
-      const title = detectedTransaction.merchant && detectedTransaction.merchant !== "Unknown"
-        ? detectedTransaction.merchant
-        : detectedTransaction.source || "Detected transaction";
-
+      setReviewingId(detectedTransaction.id);
       const response = await fetch(`${API}/`, {
         method: "POST",
         headers: { ...headers, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title,
-          category: detectedTransaction.category || "Other",
-          amount: Number(detectedTransaction.amount),
-          created_at: localDate,
-          type: detectedTransaction.type || "Expenses",
-        }),
+        body: JSON.stringify(buildDetectedPayload(detectedTransaction)),
       });
       if (!response.ok) throw new Error("Failed to add detected transaction");
 
-      await DetectedTransaction.clearPending();
-      setDetectedTransaction(null);
+      await DetectedTransaction.removePending({ id: detectedTransaction.id });
+      setDetectedTransactions((prev) => prev.filter((item) => item.id !== detectedTransaction.id));
       toast.success("Detected transaction added");
       await loadHome();
     } catch (error) {
       console.error(error);
       toast.error("Failed to add detected transaction");
     } finally {
-      setReviewingDetected(false);
+      setReviewingId(null);
+    }
+  };
+
+  const addAllDetectedTransactions = async () => {
+    if (!detectedTransactions.length) return;
+    try {
+      setAddingAll(true);
+      let addedCount = 0;
+      for (const item of detectedTransactions) {
+        const response = await fetch(`${API}/`, {
+          method: "POST",
+          headers: { ...headers, "Content-Type": "application/json" },
+          body: JSON.stringify(buildDetectedPayload(item)),
+        });
+        if (!response.ok) throw new Error(`Failed while adding ${item.merchant || "detected transaction"}`);
+        addedCount += 1;
+      }
+      await DetectedTransaction.clearAllPending();
+      setDetectedTransactions([]);
+      toast.success(`${addedCount} detected transactions added`);
+      await loadHome();
+    } catch (error) {
+      console.error(error);
+      toast.error("Could not add all transactions. Review remaining items before retrying.");
+      await checkDetectedTransactions();
+    } finally {
+      setAddingAll(false);
     }
   };
 
@@ -165,18 +199,43 @@ const Home = () => {
         </div>
       </section>
 
-      {detectedTransaction && (
-        <section className="detected-transaction-card">
-          <div className="detected-transaction-icon"><BellRing size={22} /></div>
-          <div className="detected-transaction-main">
-            <span className="detected-kicker">Payment detected</span>
-            <h2>{formatMoney(detectedTransaction.amount)}</h2>
-            <p>{detectedTransaction.type === "Income" ? "From" : "To"}: <strong>{detectedTransaction.merchant || "Unknown"}</strong></p>
-            <div className="detected-meta"><span>{detectedTransaction.type}</span><span>{detectedTransaction.category || "Other"}</span><span>{detectedTransaction.source || "Payment app"}</span></div>
+      {detectedTransactions.length > 0 && (
+        <section className="detected-queue-card">
+          <div className="detected-queue-header">
+            <div className="detected-queue-title">
+              <div className="detected-transaction-icon"><BellRing size={22} /></div>
+              <div>
+                <span className="detected-kicker">Smart tracking</span>
+                <h2>{detectedTransactions.length} transaction{detectedTransactions.length === 1 ? "" : "s"} detected</h2>
+                <p>Review them now or come back later. They stay on this device until you add or ignore them.</p>
+              </div>
+            </div>
+            {detectedTransactions.length > 1 && (
+              <button className="detected-add-all-button" type="button" onClick={addAllDetectedTransactions} disabled={addingAll || reviewingId !== null}>
+                <Plus size={17} /> {addingAll ? "Adding all..." : "Add All"}
+              </button>
+            )}
           </div>
-          <div className="detected-actions">
-            <button className="detected-add-button" type="button" onClick={addDetectedTransaction} disabled={reviewingDetected}><Plus size={17} />{reviewingDetected ? "Adding..." : "Add"}</button>
-            <button className="detected-ignore-button" type="button" onClick={ignoreDetectedTransaction} disabled={reviewingDetected}><X size={17} />Ignore</button>
+
+          <div className="detected-queue-list">
+            {detectedTransactions.map((item) => (
+              <article className="detected-transaction-row" key={item.id}>
+                <div className="detected-transaction-main">
+                  <span className="detected-kicker">Payment detected</span>
+                  <h3>{formatMoney(item.amount)}</h3>
+                  <p>{item.type === "Income" ? "From" : "To"}: <strong>{item.merchant || "Unknown"}</strong></p>
+                  <div className="detected-meta"><span>{item.type}</span><span>{item.category || "Other"}</span><span>{item.source || "Payment app"}</span></div>
+                </div>
+                <div className="detected-actions">
+                  <button className="detected-add-button" type="button" onClick={() => addDetectedTransaction(item)} disabled={addingAll || reviewingId === item.id}>
+                    <Plus size={17} />{reviewingId === item.id ? "Adding..." : "Add"}
+                  </button>
+                  <button className="detected-ignore-button" type="button" onClick={() => ignoreDetectedTransaction(item.id)} disabled={addingAll || reviewingId === item.id}>
+                    <X size={17} />Ignore
+                  </button>
+                </div>
+              </article>
+            ))}
           </div>
         </section>
       )}
