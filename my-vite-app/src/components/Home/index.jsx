@@ -1,21 +1,24 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { Capacitor, registerPlugin } from "@capacitor/core";
 import Cookies from "js-cookie";
 import toast from "react-hot-toast";
 import {
   ArrowDownRight,
   ArrowUpRight,
+  BellRing,
   CalendarDays,
   Eye,
   EyeOff,
   Plus,
   Wallet,
+  X,
 } from "lucide-react";
 import LoadingState from "../LoadingState";
 import "./index.css";
 
 const API = "https://money-manager-wmon.onrender.com";
-
+const DetectedTransaction = registerPlugin("DetectedTransaction");
 const transactionTypes = ["Income", "Expenses"];
 const categories = ["Food", "Entertainment", "Medical", "Transport", "Education", "Shopping", "Salary", "Other"];
 
@@ -25,6 +28,8 @@ const Home = () => {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [detectedTransaction, setDetectedTransaction] = useState(null);
+  const [reviewingDetected, setReviewingDetected] = useState(false);
   const [showPrivateAmounts, setShowPrivateAmounts] = useState(false);
   const [form, setForm] = useState({ title: "", category: "Food", amount: "", date: new Date().toISOString().slice(0, 10), type: "Income" });
 
@@ -52,7 +57,23 @@ const Home = () => {
     }
   };
 
-  useEffect(() => { loadHome(); }, []);
+  const checkDetectedTransaction = async () => {
+    if (!Capacitor.isNativePlatform()) return;
+    try {
+      const result = await DetectedTransaction.getPending();
+      setDetectedTransaction(result.transaction || null);
+    } catch (error) {
+      console.error("Unable to read detected transaction", error);
+    }
+  };
+
+  useEffect(() => {
+    loadHome();
+    checkDetectedTransaction();
+    const onVisible = () => { if (!document.hidden) checkDetectedTransaction(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, []);
 
   const onChange = (event) => {
     const { name, value } = event.target;
@@ -82,6 +103,52 @@ const Home = () => {
     }
   };
 
+  const ignoreDetectedTransaction = async () => {
+    try {
+      await DetectedTransaction.clearPending();
+      setDetectedTransaction(null);
+      toast.success("Detected transaction ignored");
+    } catch (error) {
+      console.error(error);
+      toast.error("Unable to ignore transaction");
+    }
+  };
+
+  const addDetectedTransaction = async () => {
+    if (!detectedTransaction) return;
+    try {
+      setReviewingDetected(true);
+      const detectedDate = new Date(detectedTransaction.detectedAt || Date.now());
+      const localDate = `${detectedDate.getFullYear()}-${String(detectedDate.getMonth() + 1).padStart(2, "0")}-${String(detectedDate.getDate()).padStart(2, "0")}`;
+      const title = detectedTransaction.merchant && detectedTransaction.merchant !== "Unknown"
+        ? detectedTransaction.merchant
+        : detectedTransaction.source || "Detected transaction";
+
+      const response = await fetch(`${API}/`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          category: detectedTransaction.category || "Other",
+          amount: Number(detectedTransaction.amount),
+          created_at: localDate,
+          type: detectedTransaction.type || "Expenses",
+        }),
+      });
+      if (!response.ok) throw new Error("Failed to add detected transaction");
+
+      await DetectedTransaction.clearPending();
+      setDetectedTransaction(null);
+      toast.success("Detected transaction added");
+      await loadHome();
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to add detected transaction");
+    } finally {
+      setReviewingDetected(false);
+    }
+  };
+
   const recentTransactions = [...transactions].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 5);
   const formatMoney = (value) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(Number(value || 0));
   const privateMoney = (value) => showPrivateAmounts ? formatMoney(value) : "₹ ••••••";
@@ -89,68 +156,66 @@ const Home = () => {
   return (
     <div className="home-page">
       <section className="home-greeting">
-        <div>
-          <p className="home-eyebrow">Money Manager</p>
-          <h1>Good to see you, {profile.name || "there"} 👋</h1>
-          <p>Track today, build tomorrow.</p>
-        </div>
+        <div><p className="home-eyebrow">Money Manager</p><h1>Good to see you, {profile.name || "there"} 👋</h1><p>Track today, build tomorrow.</p></div>
         <div className="home-heading-actions">
-          <button
-            className="home-privacy-button"
-            type="button"
-            onClick={() => setShowPrivateAmounts((prev) => !prev)}
-            aria-label={showPrivateAmounts ? "Hide financial amounts" : "Show financial amounts"}
-            title={showPrivateAmounts ? "Hide amounts" : "Show amounts"}
-          >
-            {showPrivateAmounts ? <Eye size={18} /> : <EyeOff size={18} />}
-            {showPrivateAmounts ? "Hide Amounts" : "Show Amounts"}
+          <button className="home-privacy-button" type="button" onClick={() => setShowPrivateAmounts((prev) => !prev)} aria-label={showPrivateAmounts ? "Hide financial amounts" : "Show financial amounts"} title={showPrivateAmounts ? "Hide amounts" : "Show amounts"}>
+            {showPrivateAmounts ? <Eye size={18} /> : <EyeOff size={18} />}{showPrivateAmounts ? "Hide Amounts" : "Show Amounts"}
           </button>
           <div className="home-date-pill"><CalendarDays size={18} />{new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</div>
         </div>
       </section>
 
-      {loading ? (
-        <LoadingState rows={3} label="Loading your financial dashboard..." />
-      ) : (
-        <>
-          <section className="summary-grid">
-            <article className="summary-card balance-card">
-              <div className="summary-icon balance-icon"><Wallet size={22} /></div>
-              <div className="summary-content"><span>Total Balance</span><strong>{privateMoney(summary.balance)}</strong></div>
-            </article>
-            <article className="summary-card"><div className="summary-icon income-icon"><ArrowUpRight size={22} /></div><div><span>Monthly Income</span><strong className="income-value">{privateMoney(summary.income)}</strong></div></article>
-            <article className="summary-card"><div className="summary-icon expense-icon"><ArrowDownRight size={22} /></div><div><span>Monthly Expenses</span><strong className="expense-value">{privateMoney(summary.expenses)}</strong></div></article>
-          </section>
-
-          <section className="home-hero-card"><div><span className="hero-kicker">Your financial command center</span><h2>Manage your money smarter.</h2><p>Record every transaction, watch your spending, and make better decisions month by month.</p></div><div className="hero-symbols" aria-hidden="true"><div>₹</div><div>↗</div><div>✓</div></div></section>
-
-          <section className="home-card add-transaction-card">
-            <div className="section-title-row"><div><span className="section-icon"><Plus size={18} /></span><h2>Add New Transaction</h2></div></div>
-            <form className="quick-transaction-form" onSubmit={addTransaction}>
-              <label><span>Title</span><input name="title" value={form.title} onChange={onChange} placeholder="e.g. Lunch" /></label>
-              <label><span>Category</span><select name="category" value={form.category} onChange={onChange}>{categories.map((item) => <option key={item}>{item}</option>)}</select></label>
-              <label><span>Amount</span><input name="amount" type="number" min="1" value={form.amount} onChange={onChange} placeholder="₹ 0" /></label>
-              <label><span>Date</span><input name="date" type="date" value={form.date} onChange={onChange} /></label>
-              <label><span>Type</span><select name="type" value={form.type} onChange={onChange}>{transactionTypes.map((item) => <option key={item}>{item}</option>)}</select></label>
-              <button className="quick-add-button" type="submit" disabled={submitting}><Plus size={18} /> {submitting ? "Adding..." : "Add Transaction"}</button>
-            </form>
-          </section>
-
-          <section className="home-card recent-card">
-            <div className="section-title-row"><h2>Recent Transactions</h2><Link to="/history">View all →</Link></div>
-            <div className="recent-list">
-              {recentTransactions.length === 0 ? <div className="empty-recent">No transactions yet. Add your first one above.</div> : recentTransactions.map((transaction) => (
-                <div className="recent-row" key={transaction._id}>
-                  <div className={`recent-type-icon ${transaction.type === "Income" ? "recent-income-icon" : "recent-expense-icon"}`}>{transaction.type === "Income" ? <ArrowUpRight size={18} /> : <ArrowDownRight size={18} />}</div>
-                  <div className="recent-main"><strong>{transaction.title}</strong><span>{transaction.category}</span></div>
-                  <span className="recent-date">{new Date(transaction.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span>
-                  <strong className={transaction.type === "Income" ? "income-value" : "expense-value"}>{transaction.type === "Income" ? "+ " : "- "}{privateMoney(transaction.amount)}</strong>
-                </div>
-              ))}
-            </div>
-          </section>
-        </>
+      {detectedTransaction && (
+        <section className="detected-transaction-card">
+          <div className="detected-transaction-icon"><BellRing size={22} /></div>
+          <div className="detected-transaction-main">
+            <span className="detected-kicker">Payment detected</span>
+            <h2>{formatMoney(detectedTransaction.amount)}</h2>
+            <p>{detectedTransaction.type === "Income" ? "From" : "To"}: <strong>{detectedTransaction.merchant || "Unknown"}</strong></p>
+            <div className="detected-meta"><span>{detectedTransaction.type}</span><span>{detectedTransaction.category || "Other"}</span><span>{detectedTransaction.source || "Payment app"}</span></div>
+          </div>
+          <div className="detected-actions">
+            <button className="detected-add-button" type="button" onClick={addDetectedTransaction} disabled={reviewingDetected}><Plus size={17} />{reviewingDetected ? "Adding..." : "Add"}</button>
+            <button className="detected-ignore-button" type="button" onClick={ignoreDetectedTransaction} disabled={reviewingDetected}><X size={17} />Ignore</button>
+          </div>
+        </section>
       )}
+
+      {loading ? <LoadingState rows={3} label="Loading your financial dashboard..." /> : <>
+        <section className="summary-grid">
+          <article className="summary-card balance-card"><div className="summary-icon balance-icon"><Wallet size={22} /></div><div className="summary-content"><span>Total Balance</span><strong>{privateMoney(summary.balance)}</strong></div></article>
+          <article className="summary-card"><div className="summary-icon income-icon"><ArrowUpRight size={22} /></div><div><span>Monthly Income</span><strong className="income-value">{privateMoney(summary.income)}</strong></div></article>
+          <article className="summary-card"><div className="summary-icon expense-icon"><ArrowDownRight size={22} /></div><div><span>Monthly Expenses</span><strong className="expense-value">{privateMoney(summary.expenses)}</strong></div></article>
+        </section>
+
+        <section className="home-hero-card"><div><span className="hero-kicker">Your financial command center</span><h2>Manage your money smarter.</h2><p>Record every transaction, watch your spending, and make better decisions month by month.</p></div><div className="hero-symbols" aria-hidden="true"><div>₹</div><div>↗</div><div>✓</div></div></section>
+
+        <section className="home-card add-transaction-card">
+          <div className="section-title-row"><div><span className="section-icon"><Plus size={18} /></span><h2>Add New Transaction</h2></div></div>
+          <form className="quick-transaction-form" onSubmit={addTransaction}>
+            <label><span>Title</span><input name="title" value={form.title} onChange={onChange} placeholder="e.g. Lunch" /></label>
+            <label><span>Category</span><select name="category" value={form.category} onChange={onChange}>{categories.map((item) => <option key={item}>{item}</option>)}</select></label>
+            <label><span>Amount</span><input name="amount" type="number" min="1" value={form.amount} onChange={onChange} placeholder="₹ 0" /></label>
+            <label><span>Date</span><input name="date" type="date" value={form.date} onChange={onChange} /></label>
+            <label><span>Type</span><select name="type" value={form.type} onChange={onChange}>{transactionTypes.map((item) => <option key={item}>{item}</option>)}</select></label>
+            <button className="quick-add-button" type="submit" disabled={submitting}><Plus size={18} /> {submitting ? "Adding..." : "Add Transaction"}</button>
+          </form>
+        </section>
+
+        <section className="home-card recent-card">
+          <div className="section-title-row"><h2>Recent Transactions</h2><Link to="/history">View all →</Link></div>
+          <div className="recent-list">
+            {recentTransactions.length === 0 ? <div className="empty-recent">No transactions yet. Add your first one above.</div> : recentTransactions.map((transaction) => (
+              <div className="recent-row" key={transaction._id}>
+                <div className={`recent-type-icon ${transaction.type === "Income" ? "recent-income-icon" : "recent-expense-icon"}`}>{transaction.type === "Income" ? <ArrowUpRight size={18} /> : <ArrowDownRight size={18} />}</div>
+                <div className="recent-main"><strong>{transaction.title}</strong><span>{transaction.category}</span></div>
+                <span className="recent-date">{new Date(transaction.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span>
+                <strong className={transaction.type === "Income" ? "income-value" : "expense-value"}>{transaction.type === "Income" ? "+ " : "- "}{privateMoney(transaction.amount)}</strong>
+              </div>
+            ))}
+          </div>
+        </section>
+      </>}
     </div>
   );
 };
