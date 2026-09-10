@@ -26,8 +26,11 @@ public class DetectedTransactionPlugin extends Plugin {
 
     private JSONArray readQueue() {
         String raw = prefs().getString(QUEUE_KEY, "[]");
-        try { return new JSONArray(raw == null ? "[]" : raw); }
-        catch (JSONException error) { return new JSONArray(); }
+        try {
+            return new JSONArray(raw == null ? "[]" : raw);
+        } catch (JSONException error) {
+            return new JSONArray();
+        }
     }
 
     private void saveQueue(JSONArray queue) {
@@ -37,8 +40,12 @@ public class DetectedTransactionPlugin extends Plugin {
     @PluginMethod
     public void getPendingQueue(PluginCall call) {
         JSObject result = new JSObject();
-        result.put("transactions", new JSArray(readQueue()));
-        call.resolve(result);
+        try {
+            result.put("transactions", new JSArray(readQueue().toString()));
+            call.resolve(result);
+        } catch (JSONException error) {
+            call.reject("Unable to read pending transactions", error);
+        }
     }
 
     @PluginMethod
@@ -53,7 +60,9 @@ public class DetectedTransactionPlugin extends Plugin {
         JSONArray next = new JSONArray();
         for (int i = 0; i < current.length(); i++) {
             JSONObject item = current.optJSONObject(i);
-            if (item == null || !id.equals(item.optString("id"))) next.put(item);
+            if (item == null || !id.equals(item.optString("id"))) {
+                if (item != null) next.put(item);
+            }
         }
         saveQueue(next);
         call.resolve();
