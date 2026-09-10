@@ -3,12 +3,14 @@ package com.vjviki.moneymanager;
 import android.content.Context;
 import android.content.SharedPreferences;
 
+import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -16,33 +18,50 @@ import org.json.JSONObject;
 public class DetectedTransactionPlugin extends Plugin {
 
     private static final String PREFS = "money_manager_detected_transactions";
-    private static final String PENDING_KEY = "pending_transaction";
+    private static final String QUEUE_KEY = "pending_transactions";
 
-    @PluginMethod
-    public void getPending(PluginCall call) {
-        SharedPreferences prefs = getContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-        String raw = prefs.getString(PENDING_KEY, null);
-        JSObject result = new JSObject();
+    private SharedPreferences prefs() {
+        return getContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+    }
 
-        if (raw == null || raw.isEmpty()) {
-            result.put("transaction", JSObject.NULL);
-            call.resolve(result);
-            return;
-        }
+    private JSONArray readQueue() {
+        String raw = prefs().getString(QUEUE_KEY, "[]");
+        try { return new JSONArray(raw == null ? "[]" : raw); }
+        catch (JSONException error) { return new JSONArray(); }
+    }
 
-        try {
-            JSONObject transaction = new JSONObject(raw);
-            result.put("transaction", transaction);
-            call.resolve(result);
-        } catch (JSONException error) {
-            call.reject("Unable to read detected transaction", error);
-        }
+    private void saveQueue(JSONArray queue) {
+        prefs().edit().putString(QUEUE_KEY, queue.toString()).apply();
     }
 
     @PluginMethod
-    public void clearPending(PluginCall call) {
-        getContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-                .edit().remove(PENDING_KEY).apply();
+    public void getPendingQueue(PluginCall call) {
+        JSObject result = new JSObject();
+        result.put("transactions", new JSArray(readQueue()));
+        call.resolve(result);
+    }
+
+    @PluginMethod
+    public void removePending(PluginCall call) {
+        String id = call.getString("id");
+        if (id == null || id.isEmpty()) {
+            call.reject("Transaction id is required");
+            return;
+        }
+
+        JSONArray current = readQueue();
+        JSONArray next = new JSONArray();
+        for (int i = 0; i < current.length(); i++) {
+            JSONObject item = current.optJSONObject(i);
+            if (item == null || !id.equals(item.optString("id"))) next.put(item);
+        }
+        saveQueue(next);
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void clearAllPending(PluginCall call) {
+        prefs().edit().remove(QUEUE_KEY).apply();
         call.resolve();
     }
 }
