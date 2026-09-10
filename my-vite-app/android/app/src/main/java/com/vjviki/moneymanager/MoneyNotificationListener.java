@@ -8,6 +8,7 @@ import android.service.notification.NotificationListenerService;
 import android.service.notification.StatusBarNotification;
 import android.util.Log;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -19,7 +20,8 @@ public class MoneyNotificationListener extends NotificationListenerService {
 
     private static final String TAG = "MoneyNotification";
     private static final String PREFS = "money_manager_detected_transactions";
-    private static final String PENDING_KEY = "pending_transaction";
+    private static final String QUEUE_KEY = "pending_transactions";
+    private static final int MAX_QUEUE_SIZE = 50;
 
     private static final Pattern AMOUNT_PATTERN = Pattern.compile(
             "(?i)(?:₹|rs\\.?|inr)\\s*[:.-]?\\s*([0-9]+(?:,[0-9]{2,3})*(?:\\.[0-9]{1,2})?)"
@@ -78,13 +80,26 @@ public class MoneyNotificationListener extends NotificationListenerService {
         Log.d(TAG, "Suggested category: " + category);
         Log.d(TAG, "Detected at: " + sbn.getPostTime());
 
-        savePendingTransaction(amount, merchant, type, category, source, packageName, sbn.getPostTime());
+        enqueueTransaction(amount, merchant, type, category, source, packageName, sbn.getPostTime(), safe(sbn.getKey()));
     }
 
-    private void savePendingTransaction(Double amount, String merchant, String type, String category,
-                                        String source, String packageName, long detectedAt) {
+    private synchronized void enqueueTransaction(Double amount, String merchant, String type, String category,
+                                                 String source, String packageName, long detectedAt, String notificationKey) {
         try {
+            SharedPreferences prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+            JSONArray queue = readQueue(prefs);
+
+            String fingerprint = createFingerprint(packageName, amount, merchant, type, detectedAt, notificationKey);
+            for (int i = 0; i < queue.length(); i++) {
+                JSONObject existing = queue.optJSONObject(i);
+                if (existing != null && fingerprint.equals(existing.optString("fingerprint"))) {
+                    Log.d(TAG, "Duplicate detected transaction ignored");
+                    return;
+                }
+            }
+
             JSONObject item = new JSONObject();
+            item.put("id", packageName + "-" + detectedAt + "-" + Math.abs(fingerprint.hashCode()));
             item.put("amount", amount);
             item.put("merchant", merchant);
             item.put("type", type);
@@ -92,13 +107,34 @@ public class MoneyNotificationListener extends NotificationListenerService {
             item.put("source", source);
             item.put("packageName", packageName);
             item.put("detectedAt", detectedAt);
+            item.put("fingerprint", fingerprint);
 
-            SharedPreferences prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-            prefs.edit().putString(PENDING_KEY, item.toString()).apply();
-            Log.d(TAG, "Detected transaction saved locally for review");
+            queue.put(item);
+
+            while (queue.length() > MAX_QUEUE_SIZE) {
+                JSONArray trimmed = new JSONArray();
+                for (int i = 1; i < queue.length(); i++) trimmed.put(queue.get(i));
+                queue = trimmed;
+            }
+
+            prefs.edit().putString(QUEUE_KEY, queue.toString()).apply();
+            Log.d(TAG, "Detected transaction queued locally. Pending count=" + queue.length());
         } catch (JSONException error) {
-            Log.e(TAG, "Unable to save detected transaction", error);
+            Log.e(TAG, "Unable to queue detected transaction", error);
         }
+    }
+
+    private JSONArray readQueue(SharedPreferences prefs) {
+        String raw = prefs.getString(QUEUE_KEY, "[]");
+        try { return new JSONArray(raw == null ? "[]" : raw); }
+        catch (JSONException error) { return new JSONArray(); }
+    }
+
+    private String createFingerprint(String packageName, Double amount, String merchant, String type,
+                                     long detectedAt, String notificationKey) {
+        if (!notificationKey.isEmpty()) return packageName + "|" + notificationKey;
+        long twoMinuteBucket = detectedAt / 120000L;
+        return packageName + "|" + amount + "|" + merchant.toLowerCase(Locale.ROOT) + "|" + type + "|" + twoMinuteBucket;
     }
 
     private String getCharSequence(Bundle extras, String key) {
