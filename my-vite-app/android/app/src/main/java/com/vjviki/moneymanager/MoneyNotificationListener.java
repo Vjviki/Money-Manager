@@ -1,6 +1,7 @@
 package com.vjviki.moneymanager;
 
 import android.app.Notification;
+import android.os.Bundle;
 import android.service.notification.NotificationListenerService;
 import android.service.notification.StatusBarNotification;
 import android.util.Log;
@@ -14,7 +15,7 @@ public class MoneyNotificationListener extends NotificationListenerService {
     private static final String TAG = "MoneyNotification";
 
     private static final Pattern AMOUNT_PATTERN = Pattern.compile(
-            "(?i)(?:₹|INR\\s*)\\s*([0-9]+(?:,[0-9]{2,3})*(?:\\.[0-9]{1,2})?)"
+            "(?i)(?:₹|rs\\.?|inr)\\s*[:.-]?\\s*([0-9]+(?:,[0-9]{2,3})*(?:\\.[0-9]{1,2})?)"
     );
 
     private static final Pattern PERSON_AFTER_TO_PATTERN = Pattern.compile(
@@ -40,20 +41,40 @@ public class MoneyNotificationListener extends NotificationListenerService {
         }
 
         Notification notification = sbn.getNotification();
+        Bundle extras = notification.extras;
+
         String packageName = safe(sbn.getPackageName());
-        String title = safe(notification.extras.getString(Notification.EXTRA_TITLE, ""));
+        String title = getCharSequence(extras, Notification.EXTRA_TITLE);
+        String text = getCharSequence(extras, Notification.EXTRA_TEXT);
+        String bigText = getCharSequence(extras, Notification.EXTRA_BIG_TEXT);
+        String subText = getCharSequence(extras, Notification.EXTRA_SUB_TEXT);
+        String infoText = getCharSequence(extras, Notification.EXTRA_INFO_TEXT);
 
-        CharSequence textCharSequence = notification.extras.getCharSequence(Notification.EXTRA_TEXT);
-        String text = textCharSequence != null ? textCharSequence.toString() : "";
+        String combined = String.join(" ", title, text, bigText, subText, infoText)
+                .replaceAll("\\s+", " ")
+                .trim();
 
-        String combined = (title + " " + text).trim();
+        boolean knownPaymentApp = isKnownPaymentApp(packageName);
 
-        // Ignore ordinary notifications. A potential financial notification must contain
-        // both an amount and a transaction-related word.
+        // Diagnostic logging for payment apps so we can learn their exact notification format.
+        // This stays local in Logcat and is not sent to the backend.
+        if (knownPaymentApp) {
+            Log.d(TAG, "PAYMENT_APP_NOTIFICATION");
+            Log.d(TAG, "Package: " + packageName);
+            Log.d(TAG, "Title: " + title);
+            Log.d(TAG, "Text: " + text);
+            Log.d(TAG, "BigText: " + bigText);
+            Log.d(TAG, "SubText: " + subText);
+            Log.d(TAG, "InfoText: " + infoText);
+        }
+
         Double amount = extractAmount(combined);
         String type = detectTransactionType(combined);
 
         if (amount == null || type == null) {
+            if (knownPaymentApp) {
+                Log.d(TAG, "Payment notification not parsed -> amount=" + amount + ", type=" + type);
+            }
             return;
         }
 
@@ -68,6 +89,12 @@ public class MoneyNotificationListener extends NotificationListenerService {
         Log.d(TAG, "Merchant/Person: " + merchant);
         Log.d(TAG, "Suggested category: " + category);
         Log.d(TAG, "Detected at: " + sbn.getPostTime());
+    }
+
+    private String getCharSequence(Bundle extras, String key) {
+        if (extras == null) return "";
+        CharSequence value = extras.getCharSequence(key);
+        return value == null ? "" : value.toString();
     }
 
     private Double extractAmount(String content) {
@@ -86,17 +113,16 @@ public class MoneyNotificationListener extends NotificationListenerService {
     private String detectTransactionType(String content) {
         String value = content.toLowerCase(Locale.ROOT);
 
-        // Income words are checked first so messages such as "credited/received" are not
-        // accidentally treated as outgoing payments.
         if (containsAny(value,
                 "credited", "credit of", "received", "money received",
-                "amount received", "deposited", "salary credited")) {
+                "amount received", "deposited", "salary credited", "you received")) {
             return "Income";
         }
 
         if (containsAny(value,
                 "debited", "debit of", "paid", "payment successful",
-                "payment of", "sent", "spent", "purchase", "txn of")) {
+                "payment of", "sent", "spent", "purchase", "txn of",
+                "you paid", "transferred", "money sent")) {
             return "Expenses";
         }
 
@@ -125,7 +151,7 @@ public class MoneyNotificationListener extends NotificationListenerService {
         }
 
         String cleaned = value
-                .replaceAll("(?i)\\b(?:using|via|through|on)\\b.*$", "")
+                .replaceAll("(?i)\\b(?:using|via|through|on|with|upi|ref|utr)\\b.*$", "")
                 .replaceAll("\\s{2,}", " ")
                 .trim();
 
@@ -164,6 +190,15 @@ public class MoneyNotificationListener extends NotificationListenerService {
         return "Other";
     }
 
+    private boolean isKnownPaymentApp(String packageName) {
+        return containsAny(packageName,
+                "com.google.android.apps.nbu.paisa.user",
+                "com.phonepe.app",
+                "net.one97.paytm",
+                "com.mobikwik_new",
+                "com.freecharge.android");
+    }
+
     private String sourceName(String packageName) {
         if (packageName == null) {
             return "Unknown";
@@ -176,12 +211,17 @@ public class MoneyNotificationListener extends NotificationListenerService {
                 return "PhonePe";
             case "net.one97.paytm":
                 return "Paytm";
+            case "com.mobikwik_new":
+                return "MobiKwik";
+            case "com.freecharge.android":
+                return "Freecharge";
             default:
                 return "Bank/Payment App";
         }
     }
 
     private boolean containsAny(String value, String... words) {
+        if (value == null) return false;
         for (String word : words) {
             if (value.contains(word)) {
                 return true;
