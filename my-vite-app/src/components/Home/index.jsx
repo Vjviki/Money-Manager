@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import Cookies from "js-cookie";
@@ -29,6 +29,9 @@ const Home = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [detectedTransactions, setDetectedTransactions] = useState([]);
+  const queueBusy = useRef(false);
+  const queueReadVersion = useRef(0);
+  const [queueError, setQueueError] = useState("");
   const [reviewingId, setReviewingId] = useState(null);
   const [addingAll, setAddingAll] = useState(false);
   const [showPrivateAmounts, setShowPrivateAmounts] = useState(false);
@@ -60,20 +63,39 @@ const Home = () => {
 
   const checkDetectedTransactions = async () => {
     if (!Capacitor.isNativePlatform()) return;
+    const version = ++queueReadVersion.current;
     try {
       const result = await DetectedTransaction.getPendingQueue();
+      if (version !== queueReadVersion.current) return;
       setDetectedTransactions(Array.isArray(result.transactions) ? result.transactions : []);
+      setQueueError("");
     } catch (error) {
+      if (version === queueReadVersion.current) setQueueError("Unable to read pending payments. Reopen Home to retry.");
       console.error("Unable to read detected transactions", error);
     }
   };
 
   useEffect(() => {
     loadHome();
+    let disposed = false;
+    let subscription;
+    if (Capacitor.isNativePlatform()) {
+      DetectedTransaction.addListener("queueChanged", () => {
+        if (!disposed) checkDetectedTransactions();
+      }).then((handle) => {
+        if (disposed) handle.remove();
+        else { subscription = handle; checkDetectedTransactions(); }
+      }).catch(() => { if (!disposed) setQueueError("Live payment updates unavailable. Reopen Home to refresh."); });
+    }
     checkDetectedTransactions();
     const onVisible = () => { if (!document.hidden) checkDetectedTransactions(); };
     document.addEventListener("visibilitychange", onVisible);
-    return () => document.removeEventListener("visibilitychange", onVisible);
+    return () => {
+      disposed = true;
+      queueReadVersion.current += 1;
+      subscription?.remove();
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, []);
 
   const onChange = (event) => {
@@ -113,6 +135,7 @@ const Home = () => {
 
     return {
       title,
+      detected_id: detectedTransaction.id,
       category: detectedTransaction.category || "Other",
       amount: Number(detectedTransaction.amount),
       created_at: localDate,
@@ -121,6 +144,8 @@ const Home = () => {
   };
 
   const ignoreDetectedTransaction = async (id) => {
+    if (queueBusy.current) return;
+    queueBusy.current = true;
     try {
       setReviewingId(id);
       await DetectedTransaction.removePending({ id });
@@ -130,11 +155,14 @@ const Home = () => {
       console.error(error);
       toast.error("Unable to ignore transaction");
     } finally {
+      queueBusy.current = false;
       setReviewingId(null);
     }
   };
 
   const addDetectedTransaction = async (detectedTransaction) => {
+    if (queueBusy.current) return;
+    queueBusy.current = true;
     try {
       setReviewingId(detectedTransaction.id);
       const response = await fetch(`${API}/`, {
@@ -152,12 +180,14 @@ const Home = () => {
       console.error(error);
       toast.error("Failed to add detected transaction");
     } finally {
+      queueBusy.current = false;
       setReviewingId(null);
     }
   };
 
   const addAllDetectedTransactions = async () => {
-    if (!detectedTransactions.length) return;
+    if (queueBusy.current || !detectedTransactions.length) return;
+    queueBusy.current = true;
     try {
       setAddingAll(true);
       let addedCount = 0;
@@ -168,10 +198,11 @@ const Home = () => {
           body: JSON.stringify(buildDetectedPayload(item)),
         });
         if (!response.ok) throw new Error(`Failed while adding ${item.merchant || "detected transaction"}`);
+        await DetectedTransaction.removePending({ id: item.id });
+        setDetectedTransactions((prev) => prev.filter((pending) => pending.id !== item.id));
         addedCount += 1;
       }
-      await DetectedTransaction.clearAllPending();
-      setDetectedTransactions([]);
+      await checkDetectedTransactions();
       toast.success(`${addedCount} detected transactions added`);
       await loadHome();
     } catch (error) {
@@ -179,6 +210,7 @@ const Home = () => {
       toast.error("Could not add all transactions. Review remaining items before retrying.");
       await checkDetectedTransactions();
     } finally {
+      queueBusy.current = false;
       setAddingAll(false);
     }
   };
@@ -199,6 +231,8 @@ const Home = () => {
         </div>
       </section>
 
+      {queueError && <p role="alert">{queueError}</p>}
+      {Capacitor.isNativePlatform() && <p className="detected-kicker">Automatic tracking uses bank debit/credit notifications; payment-app confirmations are excluded to prevent duplicates.</p>}
       {detectedTransactions.length > 0 && (
         <section className="detected-queue-card">
           <div className="detected-queue-header">
@@ -227,10 +261,10 @@ const Home = () => {
                   <div className="detected-meta"><span>{item.type}</span><span>{item.category || "Other"}</span><span>{item.source || "Payment app"}</span></div>
                 </div>
                 <div className="detected-actions">
-                  <button className="detected-add-button" type="button" onClick={() => addDetectedTransaction(item)} disabled={addingAll || reviewingId === item.id}>
+                  <button className="detected-add-button" type="button" onClick={() => addDetectedTransaction(item)} disabled={addingAll || reviewingId !== null}>
                     <Plus size={17} />{reviewingId === item.id ? "Adding..." : "Add"}
                   </button>
-                  <button className="detected-ignore-button" type="button" onClick={() => ignoreDetectedTransaction(item.id)} disabled={addingAll || reviewingId === item.id}>
+                  <button className="detected-ignore-button" type="button" onClick={() => ignoreDetectedTransaction(item.id)} disabled={addingAll || reviewingId !== null}>
                     <X size={17} />Ignore
                   </button>
                 </div>

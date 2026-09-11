@@ -52,7 +52,11 @@ const Transaction = mongoose.model(
     amount: Number,
     type: { type: String, enum: ["Income", "Expenses"] },
     category: String,
+    detected_id: String,
     created_at: { type: Date, default: Date.now },
+  }).index({ user_id: 1, detected_id: 1 }, {
+    unique: true,
+    partialFilterExpression: { detected_id: { $type: "string" } },
   }),
 );
 
@@ -381,18 +385,25 @@ app.put("/change-password", authenticateToken, async (req, res) => {
 });
 
 app.post("/", authenticateToken, async (req, res) => {
-  const { title, amount, type, category, created_at } = req.body;
-
-  await Transaction.create({
-    user_id: req.user.id,
-    title,
-    amount,
-    type,
-    category,
-    created_at,
-  });
-
-  res.send({ message: "Transaction added successfully" });
+  const { title, amount, type, category, created_at, detected_id } = req.body;
+  if (detected_id !== undefined && (typeof detected_id !== "string" || !detected_id.trim() || detected_id.length > 200)) {
+    return res.status(400).send({ error: "Invalid detected transaction ID" });
+  }
+  try {
+    // Ensure the unique index exists before accepting retryable notification uploads.
+    if (detected_id) await Transaction.init();
+    await Transaction.create({
+      user_id: req.user.id, title, amount, type, category, created_at,
+      ...(detected_id ? { detected_id } : {}),
+    });
+    res.send({ message: "Transaction added successfully" });
+  } catch (error) {
+    if (detected_id && error.code === 11000 && await Transaction.exists({ user_id: req.user.id, detected_id })) {
+      return res.send({ message: "Transaction already added" });
+    }
+    console.error("Unable to save transaction", error);
+    res.status(500).send({ error: "Unable to save transaction" });
+  }
 });
 
 app.get("/", authenticateToken, async (req, res) => {
