@@ -73,3 +73,26 @@ Phone checks:
 Dismissed notifications and SMS that never produced accessible notifications cannot be
 recovered by this listener. Unsupported formats remain skipped with a visible result;
 sharing a redacted missed example allows extending the parser without guessing.
+
+## Editable payment cards
+
+Detected payments now have editable Title and Category fields. Single Add and Add All
+use those edits and validate all selected titles before any bulk upload starts. Incoming
+native refreshes update the detected payments without overwriting edits. Fields lock
+while an Add/Ignore operation runs so the submitted values cannot change mid-upload.
+
+Drafts are saved in localStorage under the authenticated user ID and transaction ID,
+restored when Home reopens, and removed after successful Add/Ignore or after the payment
+is absent from a successfully fetched queue. Failed uploads retain the remaining drafts.
+If browser storage is unavailable, edits remain in memory and a visible warning asks
+users to keep Home open. This is local draft storage, not cross-device synchronization
+or a remembered recipient category rule.
+
+```sh
+npx vitest run tests/detection-status.test.jsx tests/detected-edits.test.jsx
+```
+
+This feature changes frontend code only. After merging, pull main, rebuild the frontend,
+run `npx cap sync android`, and install the updated APK without clearing data. No backend
+or native Java changes are needed. On the phone, edit a payment, leave and reopen Home,
+receive another notification, and verify Add/Add All save the chosen title and category.
