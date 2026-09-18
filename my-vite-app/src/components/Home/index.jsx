@@ -14,6 +14,7 @@ import {
   Wallet,
   X,
 } from "lucide-react";
+import useDetectedEdits from "../../hooks/useDetectedEdits";
 import LoadingState from "../LoadingState";
 import "./index.css";
 
@@ -40,6 +41,7 @@ const Home = () => {
   const [form, setForm] = useState({ title: "", category: "Food", amount: "", date: new Date().toISOString().slice(0, 10), type: "Income" });
 
   const token = Cookies.get("jwt_token");
+  const detectedEdits = useDetectedEdits(token);
   const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token]);
 
   const loadHome = async () => {
@@ -69,7 +71,9 @@ const Home = () => {
     try {
       const result = await DetectedTransaction.getPendingQueue();
       if (version !== queueReadVersion.current) return;
-      setDetectedTransactions(Array.isArray(result.transactions) ? result.transactions : []);
+      const pending = Array.isArray(result.transactions) ? result.transactions : [];
+      setDetectedTransactions(pending);
+      detectedEdits.prune(pending);
       setDetectionStatus(result.status || null);
       setQueueError("");
     } catch (error) {
@@ -150,17 +154,35 @@ const Home = () => {
     }
   };
 
+  const detectedFields = (item) => {
+    const draft = detectedEdits.edits[item.id] || {};
+    const defaultTitle = item.merchant && item.merchant !== "Unknown"
+      ? item.merchant : item.source || "Detected transaction";
+    const category = draft.category ?? item.category;
+    return {
+      title: typeof draft.title === "string" ? draft.title : defaultTitle,
+      category: categories.includes(category) ? category : "Other",
+    };
+  };
+  const validateDetected = (item) => {
+    if (detectedFields(item).title.trim()) return true;
+    toast.error("Enter a title for each detected payment before adding it.");
+    document.getElementById(`detected-title-${item.id}`)?.focus();
+    return false;
+  };
+  const editDetected = (id, field, value) => {
+    if (!queueBusy.current) detectedEdits.update(id, field, value);
+  };
+
   const buildDetectedPayload = (detectedTransaction) => {
     const detectedDate = new Date(detectedTransaction.detectedAt || Date.now());
     const localDate = `${detectedDate.getFullYear()}-${String(detectedDate.getMonth() + 1).padStart(2, "0")}-${String(detectedDate.getDate()).padStart(2, "0")}`;
-    const title = detectedTransaction.merchant && detectedTransaction.merchant !== "Unknown"
-      ? detectedTransaction.merchant
-      : detectedTransaction.source || "Detected transaction";
+    const fields = detectedFields(detectedTransaction);
 
     return {
-      title,
+      title: fields.title.trim(),
       detected_id: detectedTransaction.id,
-      category: detectedTransaction.category || "Other",
+      category: fields.category,
       amount: Number(detectedTransaction.amount),
       created_at: localDate,
       type: detectedTransaction.type || "Expenses",
@@ -173,6 +195,7 @@ const Home = () => {
     try {
       setReviewingId(id);
       await DetectedTransaction.removePending({ id });
+      detectedEdits.remove(id);
       setDetectedTransactions((prev) => prev.filter((item) => item.id !== id));
       toast.success("Detected transaction ignored");
     } catch (error) {
@@ -185,7 +208,7 @@ const Home = () => {
   };
 
   const addDetectedTransaction = async (detectedTransaction) => {
-    if (queueBusy.current) return;
+    if (queueBusy.current || !validateDetected(detectedTransaction)) return;
     queueBusy.current = true;
     try {
       setReviewingId(detectedTransaction.id);
@@ -197,6 +220,7 @@ const Home = () => {
       if (!response.ok) throw new Error("Failed to add detected transaction");
 
       await DetectedTransaction.removePending({ id: detectedTransaction.id });
+      detectedEdits.remove(detectedTransaction.id);
       setDetectedTransactions((prev) => prev.filter((item) => item.id !== detectedTransaction.id));
       toast.success("Detected transaction added");
       await loadHome();
@@ -211,6 +235,7 @@ const Home = () => {
 
   const addAllDetectedTransactions = async () => {
     if (queueBusy.current || !detectedTransactions.length) return;
+    if (!detectedTransactions.every(validateDetected)) return;
     queueBusy.current = true;
     try {
       setAddingAll(true);
@@ -223,6 +248,7 @@ const Home = () => {
         });
         if (!response.ok) throw new Error(`Failed while adding ${item.merchant || "detected transaction"}`);
         await DetectedTransaction.removePending({ id: item.id });
+        detectedEdits.remove(item.id);
         setDetectedTransactions((prev) => prev.filter((pending) => pending.id !== item.id));
         addedCount += 1;
       }
@@ -283,7 +309,7 @@ const Home = () => {
               <div>
                 <span className="detected-kicker">Smart tracking</span>
                 <h2>{detectedTransactions.length} transaction{detectedTransactions.length === 1 ? "" : "s"} detected</h2>
-                <p>Review them now or come back later. They stay on this device until you add or ignore them.</p>
+                <p>Edit the title and category before adding. Add All uses your edits. Unsaved payments stay here until you add or ignore them.</p>
               </div>
             </div>
             {detectedTransactions.length > 1 && (
@@ -293,14 +319,28 @@ const Home = () => {
             )}
           </div>
 
+          {detectedEdits.storageError && <p role="alert">Your edits are available now, but could not be saved on this device. Keep this screen open until you add them.</p>}
           <div className="detected-queue-list">
             {detectedTransactions.map((item) => (
-              <article className="detected-transaction-row" key={item.id}>
+              <article className="detected-transaction-row" key={item.id} aria-label={`Detected payment ${item.id}`}>
                 <div className="detected-transaction-main">
                   <span className="detected-kicker">Payment detected</span>
                   <h3>{formatMoney(item.amount)}</h3>
                   <p>{item.type === "Income" ? "From" : "To"}: <strong>{item.merchant || "Unknown"}</strong></p>
-                  <div className="detected-meta"><span>{item.type}</span><span>{item.category || "Other"}</span><span>{item.source || "Payment app"}</span></div>
+                  <div className="detected-meta"><span>{item.type}</span><span>{detectedFields(item).category}</span><span>{item.source || "Payment app"}</span></div>
+                </div>
+                <div className="detected-edit-fields">
+                  <label htmlFor={`detected-title-${item.id}`}>Title</label>
+                  <input id={`detected-title-${item.id}`} value={detectedFields(item).title}
+                    onChange={(event) => editDetected(item.id, "title", event.target.value)}
+                    placeholder="e.g. Lunch" maxLength={120} required
+                    disabled={addingAll || reviewingId !== null} />
+                  <label htmlFor={`detected-category-${item.id}`}>Category</label>
+                  <select id={`detected-category-${item.id}`} value={detectedFields(item).category}
+                    onChange={(event) => editDetected(item.id, "category", event.target.value)}
+                    disabled={addingAll || reviewingId !== null}>
+                    {categories.map((category) => <option key={category} value={category}>{category}</option>)}
+                  </select>
                 </div>
                 <div className="detected-actions">
                   <button className="detected-add-button" type="button" onClick={() => addDetectedTransaction(item)} disabled={addingAll || reviewingId !== null}>

@@ -8,8 +8,8 @@ const home=readFileSync(new URL('../src/components/Home/index.jsx',import.meta.u
 const method=home.slice(home.indexOf('  const addAllDetectedTransactions ='),home.indexOf('\n  const recentTransactions'));
 async function upload(failSecond=false,newArrival=false) {
  let pending=[{id:'A'},{id:'B'}], calls=0, saved=[]; const busy={current:false};
- const run=new Function('detectedTransactions','queueBusy','fetch','API','headers','buildDetectedPayload','DetectedTransaction','setAddingAll','setDetectedTransactions','toast','loadHome','checkDetectedTransactions','console',method+'\nreturn addAllDetectedTransactions();');
- await run([...pending],busy,async()=>{ calls++; if(calls===2&&failSecond)return {ok:false};saved.push(calls===1?'A':'B');if(calls===1&&newArrival)pending.push({id:'C'});return {ok:true};},'mock',{},x=>x,{removePending:async({id})=>{pending=pending.filter(x=>x.id!==id);},clearAllPending:()=>{throw Error('Must not clear all');}},()=>{},()=>{},{success(){},error(){}},async()=>{},async()=>{},{error(){}});
+ const run=new Function('detectedTransactions','queueBusy','fetch','API','headers','buildDetectedPayload','DetectedTransaction','setAddingAll','setDetectedTransactions','toast','loadHome','checkDetectedTransactions','console','validateDetected','detectedEdits',method+'\nreturn addAllDetectedTransactions();');
+ await run([...pending],busy,async()=>{ calls++; if(calls===2&&failSecond)return {ok:false};saved.push(calls===1?'A':'B');if(calls===1&&newArrival)pending.push({id:'C'});return {ok:true};},'mock',{},x=>x,{removePending:async({id})=>{pending=pending.filter(x=>x.id!==id);},clearAllPending:()=>{throw Error('Must not clear all');}},()=>{},()=>{},{success(){},error(){}},async()=>{},async()=>{},{error(){}},()=>true,{remove(){}});
  return {pending:pending.map(x=>x.id),saved,busy:busy.current};
 }
 test('new payment survives Add All',async()=>assert.deepEqual(await upload(false,true),{pending:['C'],saved:['A','B'],busy:false}));

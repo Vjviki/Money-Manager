@@ -71,3 +71,37 @@
   border-radius: 8px; background: var(--surface-alt, #243047); color: inherit; cursor: pointer;
 }
 .detection-status-actions button:disabled { opacity: 0.6; cursor: wait; }
+
+
+.detected-edit-fields {
+  display: grid;
+  gap: 8px;
+  flex: 1 1 240px;
+  min-width: 0;
+}
+.detected-edit-fields label { font-size: 0.875rem; font-weight: 600; }
+.detected-edit-fields input,
+.detected-edit-fields select {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 16px;
+  border: 1px solid var(--border-color, #64748b);
+  border-radius: 8px;
+  background: var(--input-bg, #182033);
+  color: var(--input-text, #f8fafc);
+}
+.detected-edit-fields input:focus-visible,
+.detected-edit-fields select:focus-visible { outline: 2px solid #8b5cf6; outline-offset: 2px; }
+.detected-edit-fields input:disabled,
+.detected-edit-fields select:disabled { opacity: 0.65; }
+@media (max-width: 700px) {
+  .detected-edit-fields { flex-basis: auto; width: 100%; }
+}
+.detected-transaction-main { min-width: 0; overflow-wrap: anywhere; }
+@media (min-width: 821px) {
+  .detected-transaction-row { grid-template-columns: minmax(0, 1fr) minmax(200px, 1fr) auto; }
+}
