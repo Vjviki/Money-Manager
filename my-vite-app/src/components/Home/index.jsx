@@ -31,6 +31,8 @@ const Home = () => {
   const [detectedTransactions, setDetectedTransactions] = useState([]);
   const queueBusy = useRef(false);
   const queueReadVersion = useRef(0);
+  const [detectionStatus, setDetectionStatus] = useState(null);
+  const [recoveringListener, setRecoveringListener] = useState(false);
   const [queueError, setQueueError] = useState("");
   const [reviewingId, setReviewingId] = useState(null);
   const [addingAll, setAddingAll] = useState(false);
@@ -68,6 +70,7 @@ const Home = () => {
       const result = await DetectedTransaction.getPendingQueue();
       if (version !== queueReadVersion.current) return;
       setDetectedTransactions(Array.isArray(result.transactions) ? result.transactions : []);
+      setDetectionStatus(result.status || null);
       setQueueError("");
     } catch (error) {
       if (version === queueReadVersion.current) setQueueError("Unable to read pending payments. Reopen Home to retry.");
@@ -87,6 +90,11 @@ const Home = () => {
         else { subscription = handle; checkDetectedTransactions(); }
       }).catch(() => { if (!disposed) setQueueError("Live payment updates unavailable. Reopen Home to refresh."); });
     }
+    if (Capacitor.isNativePlatform()) {
+      DetectedTransaction.recoverListener().catch(() => {
+        if (!disposed) setQueueError("Unable to request a notification rescan. Tap Check again.");
+      });
+    }
     checkDetectedTransactions();
     const onVisible = () => { if (!document.hidden) checkDetectedTransactions(); };
     document.addEventListener("visibilitychange", onVisible);
@@ -97,6 +105,22 @@ const Home = () => {
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, []);
+
+  const recoverDetection = async () => {
+    setRecoveringListener(true);
+    try {
+      await DetectedTransaction.recoverListener();
+      await checkDetectedTransactions();
+    } catch {
+      setQueueError("Unable to reconnect. Check notification access in Settings.");
+    } finally {
+      setRecoveringListener(false);
+    }
+  };
+  const openDetectionSettings = async () => {
+    try { await DetectedTransaction.openNotificationSettings(); }
+    catch { setQueueError("Open phone Settings and search for Notification access."); }
+  };
 
   const onChange = (event) => {
     const { name, value } = event.target;
@@ -232,6 +256,24 @@ const Home = () => {
       </section>
 
       {queueError && <p role="alert">{queueError}</p>}
+      {Capacitor.isNativePlatform() && (
+        <section className="detection-status-card" aria-label="Payment detection status">
+          <div>
+            <strong>{!detectionStatus ? "Checking payment detection…"
+              : !detectionStatus.accessEnabled ? "Notification access is off"
+              : detectionStatus.connected ? "Payment listener connected" : "Payment listener disconnected"}</strong>
+            <p>{detectionStatus?.lastResult || "Checking the saved queue and listener connection."}</p>
+            {detectionStatus?.lastCheckedAt > 0 && <small>Last check: {new Date(detectionStatus.lastCheckedAt).toLocaleTimeString()}</small>}
+          </div>
+          <div className="detection-status-actions">
+            <button type="button" onClick={recoverDetection} disabled={recoveringListener}>
+              {recoveringListener ? "Checking…" : "Check again"}
+            </button>
+            <button type="button" onClick={openDetectionSettings}>Notification settings</button>
+          </div>
+          <p>Check again scans notifications still on your phone. Dismissed notifications cannot be recovered here.</p>
+        </section>
+      )}
       {Capacitor.isNativePlatform() && <p className="detected-kicker">Automatic tracking uses bank debit/credit notifications; payment-app confirmations are excluded to prevent duplicates.</p>}
       {detectedTransactions.length > 0 && (
         <section className="detected-queue-card">
