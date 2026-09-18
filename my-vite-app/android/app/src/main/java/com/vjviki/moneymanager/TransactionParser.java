@@ -1,6 +1,8 @@
 package com.vjviki.moneymanager;
 
 import java.util.Locale;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -20,9 +22,14 @@ public final class TransactionParser {
     }
     public static Payment parse(String raw) {
         if (raw == null) return null;
+        // A single-payment parser must not silently take the first of several postings.
+        Matcher allReferences = REFERENCE.matcher(raw);
+        if (allReferences.find() && allReferences.find()) return null;
         String text = raw.replaceAll("\\s+", " ").trim();
+        // Remove help text before checking status words, e.g. "If not requested by you".
+        text = text.split("(?i)\\b(?:if\\s+(?:not|you)|not\\s+u\\?|tap\\s+to\\s+view)", 2)[0].trim();
         // Requests, failures and reversals need explicit review, not automatic classification.
-        if (matches(text, "\\b(failed|declined|pending|request|requested|reversed|reversal)\\b")) return null;
+        if (matches(text, "\\bnot\\s+(?:credited|debited|received|paid)\\b|\\b(failed|declined|pending|request|requested|reversed|reversal)\\b")) return null;
         boolean income = matches(text, "\\b(credited|received|deposited)\\b|\\b(?:paid|sent)\\s+you\\b");
         boolean expense = matches(text, "\\b(debited|spent)\\b|\\byou\\s+(?:paid|sent|transferred)\\b");
         if (income == expense) return null; // includes mixed credit/debit summaries
@@ -50,6 +57,31 @@ public final class TransactionParser {
         Matcher reference = REFERENCE.matcher(paymentText);
         return new Payment(value, type, merchant, reference.find() ? reference.group(1) : "");
     }
+
+    /** Recognizable starts allow safe splitting of flattened bank message histories. */
+    public static List<String> messages(String raw) {
+        List<String> result = new ArrayList<>();
+        if (raw == null || raw.trim().isEmpty()) return result;
+        Pattern start = Pattern.compile("(?i)(?:\\bYES\\s+BANK\\s+)?\\b(?:ac|a/c|account)\\s+[a-z0-9*x-]+\\s+(?:(?:was|is)\\s+)?(?:debited|credited)\\b|(?:₹|\\bINR|\\bRs\\.?)\\s*[0-9,]+(?:\\.[0-9]{1,2})?\\s+credited\\b");
+        Matcher matcher = start.matcher(raw);
+        List<Integer> offsets = new ArrayList<>();
+        while (matcher.find()) offsets.add(matcher.start());
+        if (offsets.size() < 2) { result.add(raw); return result; }
+        for (int i = 0; i < offsets.size(); i++) {
+            int from = i == 0 ? 0 : offsets.get(i);
+            result.add(raw.substring(from, i + 1 < offsets.size() ? offsets.get(i + 1) : raw.length()).trim());
+        }
+        return result;
+    }
+    public static boolean isBankCandidate(String text) {
+        return text != null && matches(text, "\\b(?:credited|debited|spent|deposited|received)\\b");
+    }
+    /** Only combine fields belonging to one notification, never a group summary. */
+    public static String withTitle(String title, String body) {
+        if (title == null || title.isEmpty() || isBankCandidate(body)) return body;
+        return isBankCandidate(title) ? title + " " + body : body;
+    }
+
     public static boolean isPaymentApp(String name) {
         return name.equals("com.google.android.apps.nbu.paisa.user") || name.equals("com.phonepe.app")
             || name.equals("net.one97.paytm") || name.equals("com.mobikwik_new") || name.equals("com.freecharge.android");

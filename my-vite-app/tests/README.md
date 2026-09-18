@@ -4,6 +4,7 @@ From `my-vite-app`, with Node and a JDK on PATH:
 
 ```sh
 node --test tests/queue.test.mjs
+npx vitest run tests/detection-status.test.jsx
 npm run build
 ```
 
@@ -13,15 +14,16 @@ They do not replace an Android build or a real MongoDB unique-index integration 
 
 ## Tracking policy
 
-Automatic tracking uses bank-style credited/debited notifications. Known payment-app
+Automatic tracking uses bank-style transaction notifications, including spent/received wording. Known payment-app
 confirmations (Google Pay, PhonePe, Paytm, MobiKwik and Freecharge) are deliberately
 excluded. For example, `FRIEND paid you ₹20` has no UPI reference to safely correlate
 with a bank SMS. Amount/time matching could merge two separate legitimate payments.
 A payment-app-only alert will not be queued; enter it manually if no bank alert arrives.
 The parser still understands `paid you` and `sent you` correctly.
 
-MessagingStyle entries and InboxStyle lines are parsed independently. Mixed credit/debit
-summaries are skipped. UPI/UTR/RRN references plus direction and amount identify events,
+MessagingStyle entries and InboxStyle lines are parsed independently. Recognizable flattened
+bank histories are split at posting boundaries; unrecognized ambiguous summaries are skipped
+and reported in detection status. Help text is removed before failure-word checks. UPI/UTR/RRN references plus direction and amount identify events,
 not Android notification keys. Referenceless fallback uses source, message timestamp and
 normalized content: it is not guaranteed to deduplicate across different notification styles.
 Replay identifiers are retained for 30 days, including after Add/Ignore. Pending rows
@@ -43,3 +45,31 @@ once after upgrading because their original text/reference was not stored.
 6. Test network interruption/retry: successful entries must not be inserted again.
 
 New events have corrected IDs; already saved duplicate records are not modified.
+
+
+## Recovery update
+
+The listener scans currently active notifications after Android connects it. Home resume
+and the Check again button request a scan when connected or request a rebind when access
+is granted but the listener is disconnected. A disconnect schedules a recovery request;
+requests are throttled to once per five seconds. Android controls whether rebind succeeds.
+The UI reports live connection/access status and the last detection outcome. It does not
+log or display raw notification text, account numbers or balances in diagnostics.
+
+This update needs a rebuilt APK, not a new backend deployment if PR #1 is already deployed.
+Keep existing app data and notification access. Android APK compilation and real-device
+binding/recovery remain release gates; Java parser and mocked React tests do not prove them.
+
+Phone checks:
+- With a normal bank notification still present, tap Check again twice: the reference-backed
+  payment should appear once, including if it was already added or ignored earlier.
+- Turn notification access off: reopen Home and verify the status says access is off.
+  Turn it back on and verify the listener connects and scans active notifications.
+- Background the app, disconnect USB, and check your next normal bank credit/debit.
+- Check a flattened YES BANK credit/debit pair and two distinct same-value credits.
+- A failed/pending/reversed payment must not be added. A completed debit with a safety
+  footer such as "If not requested by you" should be added.
+
+Dismissed notifications and SMS that never produced accessible notifications cannot be
+recovered by this listener. Unsupported formats remain skipped with a visible result;
+sharing a redacted missed example allows extending the parser without guessing.

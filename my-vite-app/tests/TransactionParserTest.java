@@ -24,6 +24,26 @@ public class TransactionParserTest {
   check(!id.equals(TransactionParser.identity(TransactionParser.parse(second),"messages",second,100)));
   check(TransactionParser.isPaymentApp("com.google.android.apps.nbu.paisa.user"));
   check(!TransactionParser.isPaymentApp("com.google.android.apps.messaging"));
+  check(TransactionParser.isBankCandidate("You spent INR 30 at SHOP"));
+  check(TransactionParser.parse(debit + " If not requested by you, call bank.") != null);
+  check(TransactionParser.parse("INR 30 debited. If you have not requested this, contact bank.") != null);
+  check(TransactionParser.parse("Payment pending: INR 30 to be debited") == null);
+  check(TransactionParser.parse("INR 30 not credited to account") == null);
+  check(TransactionParser.parse("INR 30 debited then reversed") == null);
+  var grouped = TransactionParser.messages(credit + " " + debit);
+  check(grouped.size() == 2);
+  check(TransactionParser.parse(grouped.get(0)).type.equals("Income"));
+  check(TransactionParser.parse(grouped.get(1)).type.equals("Expenses"));
+  var twoCredits = TransactionParser.messages(credit + " " + second);
+  check(twoCredits.size() == 2);
+  check(!TransactionParser.parse(twoCredits.get(0)).reference.equals(TransactionParser.parse(twoCredits.get(1)).reference));
+  var twoDebits = TransactionParser.messages(debit + " " + debit.replace("222222222222", "444444444444"));
+  check(twoDebits.size() == 2);
+  check(TransactionParser.parse(twoDebits.get(1)).reference.equals("444444444444"));
+  check(TransactionParser.parse(TransactionParser.withTitle("Account debited", "INR 30 to SHOP")).type.equals("Expenses"));
+  check(TransactionParser.withTitle("Account credited", debit).equals(debit));
+  check(TransactionParser.parse(credit + " " + second) == null);
+  check(TransactionParser.messages("3 new messages").size() == 1);
   System.out.println(count+" checks passed");
  }
 }

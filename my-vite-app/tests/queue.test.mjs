@@ -16,7 +16,7 @@ test('new payment survives Add All',async()=>assert.deepEqual(await upload(false
 test('failed upload keeps only unacknowledged items',async()=>assert.deepEqual(await upload(true,false),{pending:['B'],saved:['A'],busy:false}));
 test('Java parser: directions, recipients, grouped summary, replay and distinct references',()=>{
  const dir=mkdtempSync(join(tmpdir(),'money-parser-'));
- try {execFileSync('javac',['-d',dir,'android/app/src/main/java/com/vjviki/moneymanager/TransactionParser.java','tests/TransactionParserTest.java']);assert.match(execFileSync('java',['-cp',dir,'com.vjviki.moneymanager.TransactionParserTest'],{encoding:'utf8'}),/16 checks passed/);}finally{rmSync(dir,{recursive:true,force:true});}
+ try {execFileSync('javac',['-d',dir,'android/app/src/main/java/com/vjviki/moneymanager/TransactionParser.java','tests/TransactionParserTest.java']);assert.match(execFileSync('java',['-cp',dir,'com.vjviki.moneymanager.TransactionParserTest'],{encoding:'utf8'}),/33 checks passed/);}finally{rmSync(dir,{recursive:true,force:true});}
 });
 const backend=readFileSync(new URL('../../backend/index.js',import.meta.url),'utf8');
 const route=backend.slice(backend.indexOf('app.post("/", authenticateToken'),backend.indexOf('\napp.get("/", authenticateToken'));
