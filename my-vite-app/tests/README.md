@@ -96,3 +96,39 @@ This feature changes frontend code only. After merging, pull main, rebuild the f
 run `npx cap sync android`, and install the updated APK without clearing data. No backend
 or native Java changes are needed. On the phone, edit a payment, leave and reopen Home,
 receive another notification, and verify Add/Add All save the chosen title and category.
+
+## Category memory
+
+Detected payment cards offer an unchecked "Remember this category" choice when the
+original notification has a known recipient. Opting in learns the selected category
+only after a successful transaction POST, including during Add All. Ignore and failed
+POSTs never teach a rule. Remembering another category replaces the previous rule.
+Without opting in, changing a category affects only that payment.
+
+Rules use the original recipient (trimmed, repeated whitespace collapsed, case-insensitive)
+and direction. Punctuation and UPI handles remain distinct; income and expenses are
+separate. No fuzzy matching, title-based learning, unknown-recipient learning, or bank
+source fallback is used. Suggestions take precedence over parser categories; explicit
+drafts take precedence over suggestions. Add All snapshots reviewed payloads before
+upload so learning from one row does not recategorise another row mid-batch.
+
+Rules persist per authenticated account in localStorage on this device, with a visible
+warning on write failure. They are not cloud-synced and disappear if app data is cleared.
+The Remembered categories panel can forget individual rules without changing saved
+transactions or explicit pending edits. The checkbox choice is part of the existing
+draft persistence. This is frontend-only; no database migration or backend deployment.
+
+Validation for this change: 17 React tests, three JS queue/backend checks, production
+build and Capacitor sync passed. The existing Java parser check could not run in the
+implementation environment because javac was unavailable; no Java code changed.
+An Android APK build and real-phone verification are still required.
+
+Phone acceptance:
+1. Choose Food for a known recipient, check Remember and Add. Reopen the app and
+   check a later payment to that recipient suggests Food, even if casing differs.
+2. Override to Shopping without checking Remember; the next payment still suggests Food.
+3. Check Remember with Shopping and Add to replace the rule. Forget it from the panel;
+   the next payment falls back to parser categorisation.
+4. Verify a different recipient, an Income payment from the same recipient, Unknown,
+   and a different signed-in account do not inherit the Expenses rule.
+5. Check Add All, an interrupted upload/retry, and closing/reopening before Add.
