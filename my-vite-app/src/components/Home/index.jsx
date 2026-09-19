@@ -1,3 +1,4 @@
+import { apiFetch } from "../../utils/session";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Capacitor, registerPlugin } from "@capacitor/core";
@@ -50,9 +51,9 @@ const Home = () => {
     try {
       setLoading(true);
       const [profileRes, summaryRes, transactionsRes] = await Promise.all([
-        fetch(`${API}/profile`, { headers }),
-        fetch(`${API}/`, { headers }),
-        fetch(`${API}/transactions`, { headers }),
+        apiFetch(`${API}/profile`, { headers }),
+        apiFetch(`${API}/`, { headers }),
+        apiFetch(`${API}/transactions`, { headers }),
       ]);
       if (!profileRes.ok || !summaryRes.ok || !transactionsRes.ok) throw new Error("Failed to load dashboard");
       const [profileData, summaryData, transactionData] = await Promise.all([profileRes.json(), summaryRes.json(), transactionsRes.json()]);
@@ -139,7 +140,7 @@ const Home = () => {
     if (!form.amount || Number(form.amount) <= 0) return toast.error("Please enter a valid amount");
     try {
       setSubmitting(true);
-      const response = await fetch(`${API}/`, {
+      const response = await apiFetch(`${API}/`, {
         method: "POST",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({ title: form.title.trim(), category: form.category, amount: Number(form.amount), created_at: form.date, type: form.type }),
@@ -219,7 +220,7 @@ const Home = () => {
     try {
       setReviewingId(detectedTransaction.id);
       const payload = buildDetectedPayload(detectedTransaction);
-      const response = await fetch(`${API}/`, {
+      const response = await apiFetch(`${API}/`, {
         method: "POST",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -250,7 +251,7 @@ const Home = () => {
       let addedCount = 0;
       const batch = detectedTransactions.map(item => ({ item, payload: buildDetectedPayload(item) }));
       for (const { item, payload } of batch) {
-        const response = await fetch(`${API}/`, {
+        const response = await apiFetch(`${API}/`, {
           method: "POST",
           headers: { ...headers, "Content-Type": "application/json" },
           body: JSON.stringify(payload),

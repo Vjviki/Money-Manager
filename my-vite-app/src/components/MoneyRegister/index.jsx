@@ -1,6 +1,6 @@
+import { validToken } from "../../utils/session";
 import { useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
-import Cookies from "js-cookie";
 import {
   CheckCircle2,
   Eye,
@@ -119,8 +119,8 @@ const MoneyRegister = () => {
     }
   };
 
-  const token = Cookies.get("jwt_token");
-  if (token !== undefined) {
+  const token = validToken();
+  if (token) {
     return <Navigate to="/" replace />;
   }
 

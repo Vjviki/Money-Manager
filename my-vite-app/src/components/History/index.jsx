@@ -1,3 +1,4 @@
+import { apiFetch } from "../../utils/session";
 import { useEffect, useMemo, useState } from "react";
 import Cookies from "js-cookie";
 import toast from "react-hot-toast";
@@ -39,7 +40,7 @@ const History = () => {
   const loadTransactions = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API}/transactions`, { headers: { Authorization: `Bearer ${token}` } });
+      const response = await apiFetch(`${API}/transactions`, { headers: { Authorization: `Bearer ${token}` } });
       if (!response.ok) throw new Error("Failed to load transactions");
       const data = await response.json();
       setTransactions(data.transactions || []);
@@ -88,7 +89,7 @@ const History = () => {
   const deleteTransaction = async (id) => {
     if (!window.confirm("Delete this transaction?")) return;
     try {
-      const response = await fetch(`${API}/transactions/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+      const response = await apiFetch(`${API}/transactions/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
       if (!response.ok) throw new Error("Delete failed");
       setTransactions((prev) => prev.filter((item) => item._id !== id));
       toast.success("Transaction deleted");
@@ -118,7 +119,7 @@ const History = () => {
 
     try {
       setSaving(true);
-      const response = await fetch(`${API}/transactions/${editing._id}`, {
+      const response = await apiFetch(`${API}/transactions/${editing._id}`, {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -155,7 +156,7 @@ const History = () => {
     if (!confirmReset) return;
     try {
       setResetting(true);
-      const response = await fetch(`${API}/reset-month`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+      const response = await apiFetch(`${API}/reset-month`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
       if (!response.ok) throw new Error("Monthly reset failed");
       clearFilters();
       setTransactions([]);

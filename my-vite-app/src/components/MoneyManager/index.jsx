@@ -1,3 +1,4 @@
+import { apiFetch } from "../../utils/session";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import Cookies from "js-cookie";
@@ -51,7 +52,7 @@ const MoneyManager = () => {
         },
       };
 
-      const profileResponse = await fetch(url, options);
+      const profileResponse = await apiFetch(url, options);
 
       if (!profileResponse.ok) {
         console.error("Failed to fetch profile");
@@ -64,7 +65,7 @@ const MoneyManager = () => {
       // 2️⃣ Fetch transaction summary (income/expenses/balance)
 
       const userUrl = "https://money-manager-wmon.onrender.com/";
-      const userResponse = await fetch(userUrl, {
+      const userResponse = await apiFetch(userUrl, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${jwtToken}`,
@@ -85,7 +86,7 @@ const MoneyManager = () => {
         },
       };
 
-      const responseTrans = await fetch(urlTransactions, optionsTrans);
+      const responseTrans = await apiFetch(urlTransactions, optionsTrans);
       const transactionsData = await responseTrans.json();
 
       setTransactionsList(transactionsData.transactions);
@@ -116,7 +117,7 @@ const MoneyManager = () => {
         },
       };
 
-      const response = await fetch(url, options);
+      const response = await apiFetch(url, options);
 
       if (response.ok) {
         const updatedList = transactionsList.filter((each) => each._id !== id);
@@ -174,7 +175,7 @@ const MoneyManager = () => {
         }),
       };
 
-      const response = await fetch(url, options);
+      const response = await apiFetch(url, options);
       if (response.ok) {
         (setTitleInput(""),
           setAmountInput(""),
@@ -226,7 +227,7 @@ const MoneyManager = () => {
     try {
       const jwtToken = Cookies.get("jwt_token");
 
-      const response = await fetch(
+      const response = await apiFetch(
         "https://money-manager-wmon.onrender.com/reset-month",
         {
           method: "POST",
