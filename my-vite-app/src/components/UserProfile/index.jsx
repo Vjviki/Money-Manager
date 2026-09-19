@@ -1,3 +1,4 @@
+import { apiFetch, endSession } from "../../utils/session";
 import { useEffect, useMemo, useState } from "react";
 import Cookies from "js-cookie";
 import toast from "react-hot-toast";
@@ -83,9 +84,9 @@ const UserProfile = () => {
     try {
       setLoading(true);
       const [profileRes, summaryRes, transactionRes] = await Promise.all([
-        fetch(`${API}/profile`, { headers }),
-        fetch(`${API}/`, { headers }),
-        fetch(`${API}/transactions`, { headers }),
+        apiFetch(`${API}/profile`, { headers }),
+        apiFetch(`${API}/`, { headers }),
+        apiFetch(`${API}/transactions`, { headers }),
       ]);
 
       if (!profileRes.ok || !summaryRes.ok || !transactionRes.ok) {
@@ -166,7 +167,7 @@ const UserProfile = () => {
 
     try {
       setSaving(true);
-      const response = await fetch(`${API}/profile`, {
+      const response = await apiFetch(`${API}/profile`, {
         method: "PUT",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -226,7 +227,7 @@ const UserProfile = () => {
 
     try {
       setPasswordSaving(true);
-      const response = await fetch(`${API}/change-password`, {
+      const response = await apiFetch(`${API}/change-password`, {
         method: "PUT",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -239,7 +240,8 @@ const UserProfile = () => {
       if (!response.ok) throw new Error(data.error || "Unable to change password");
 
       closePasswordModal();
-      toast.success("Password changed successfully");
+      toast.success("Password changed. Please sign in again.");
+      endSession(token);
     } catch (err) {
       console.error(err);
       toast.error(err.message || "Unable to change password");

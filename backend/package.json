@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "test": "node --test tests/auth.test.js",
+    "test:integration": "node --test tests/auth-mongo.integration.js"
   },
   "keywords": [],
   "author": "",
@@ -15,6 +17,7 @@
     "dotenv": "^17.4.2",
     "exceljs": "^4.4.0",
     "express": "^4.21.1",
+    "express-rate-limit": "^8.7.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^9.6.1",
     "nodemailer": "^7.0.6",
