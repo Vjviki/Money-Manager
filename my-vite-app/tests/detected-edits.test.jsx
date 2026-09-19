@@ -116,3 +116,95 @@ it('partial Add All failure keeps the failed draft while clearing the saved draf
     expect(JSON.parse(localStorage.getItem('money-manager:detected-edits:alice'))).toEqual({ B: { title: 'Retry bus fare', category: 'Transport' } });
   } finally { quiet.mockRestore(); }
 });
+
+it('remembers an opted-in category after saving, restores it, allows overrides and forgetting', async () => {
+  let view = mount(); await screen.findByRole('article', { name: 'Detected payment A' });
+  fireEvent.change(card('A').getByLabelText('Category'), { target: { value: 'Food' } });
+  fireEvent.click(card('A').getByRole('checkbox'));
+  fireEvent.click(card('A').getByRole('button', { name: 'Add' }));
+  await waitFor(() => expect(screen.queryByRole('article', { name: 'Detected payment A' })).toBeNull());
+  view.unmount(); pending = [item('B', ' SHOP@UPI ')]; view = mount();
+  await screen.findByRole('article', { name: 'Detected payment B' });
+  expect(card('B').getByLabelText('Category')).toHaveValue('Food');
+  expect(card('B').getByText('Suggested from your remembered category.')).toBeTruthy();
+  fireEvent.change(card('B').getByLabelText('Category'), { target: { value: 'Shopping' } });
+  fireEvent.click(screen.getByText('Remembered categories (1)'));
+  fireEvent.click(screen.getByRole('button', { name: /Forget Expenses category/ }));
+  expect(card('B').getByLabelText('Category')).toHaveValue('Shopping');
+  await waitFor(() => expect(localStorage.getItem('money-manager:category-memory:alice')).toBeNull());
+  pending.push(item('C')); await act(async () => mocks.callback());
+  expect(card('C').getByLabelText('Category')).toHaveValue('Other');
+});
+it('does not learn without opt-in, on Ignore, or after a failed upload', async () => {
+  const quiet = vi.spyOn(console, 'error').mockImplementation(() => {});
+  try {
+    pending.push(item('B'), item('C'));
+    mount(); await screen.findByRole('article', { name: 'Detected payment A' });
+    fireEvent.change(card('A').getByLabelText('Category'), { target: { value: 'Food' } });
+    fireEvent.click(card('A').getByRole('button', { name: 'Add' }));
+    await waitFor(() => expect(screen.queryByRole('article', { name: 'Detected payment A' })).toBeNull());
+    fireEvent.click(card('B').getByRole('checkbox'));
+    fireEvent.click(card('B').getByRole('button', { name: 'Ignore' }));
+    await waitFor(() => expect(screen.queryByRole('article', { name: 'Detected payment B' })).toBeNull());
+    fireEvent.click(card('C').getByRole('checkbox')); post = async () => ({ ok: false });
+    fireEvent.click(card('C').getByRole('button', { name: 'Add' }));
+    await waitFor(() => expect(mocks.error).toHaveBeenCalledWith('Failed to add detected transaction'));
+    expect(localStorage.getItem('money-manager:category-memory:alice')).toBeNull();
+  } finally { quiet.mockRestore(); }
+});
+it('scopes rules by account, direction and exact recipient; excludes unknown recipients', async () => {
+  const rule = { merchant: 'shop@upi', type: 'Expenses', category: 'Food' };
+  localStorage.setItem('money-manager:category-memory:alice', JSON.stringify({ '["Expenses","shop@upi"]': rule }));
+  pending = [item('A'), { ...item('B'), type: 'Income' }, item('C', 'shop2@upi'), item('D', 'Unknown')];
+  let view = mount(); await screen.findByRole('article', { name: 'Detected payment A' });
+  expect(card('A').getByLabelText('Category')).toHaveValue('Food');
+  expect(card('B').getByLabelText('Category')).toHaveValue('Other');
+  expect(card('C').getByLabelText('Category')).toHaveValue('Other');
+  expect(card('D').queryByRole('checkbox')).toBeNull();
+  view.unmount(); mocks.token = token('bob'); view = mount();
+  await screen.findByRole('article', { name: 'Detected payment A' });
+  expect(card('A').getByLabelText('Category')).toHaveValue('Other');
+});
+it('Add All freezes reviewed categories and only learns successful opted-in rows', async () => {
+  const quiet = vi.spyOn(console, 'error').mockImplementation(() => {});
+  try {
+    pending.push(item('B', 'bus@upi')); mount(); await screen.findByRole('button', { name: 'Add All' });
+    for (const [id, category] of [['A', 'Food'], ['B', 'Transport']]) {
+      fireEvent.change(card(id).getByLabelText('Category'), { target: { value: category } });
+      fireEvent.click(card(id).getByRole('checkbox'));
+    }
+    post = async () => ({ ok: requests.length === 1 });
+    fireEvent.click(screen.getByRole('button', { name: 'Add All' }));
+    await waitFor(() => expect(mocks.error).toHaveBeenCalledWith('Could not add all transactions. Review remaining items before retrying.'));
+    const rules = JSON.parse(localStorage.getItem('money-manager:category-memory:alice'));
+    expect(Object.values(rules)).toEqual([{ merchant: 'shop@upi', type: 'Expenses', category: 'Food' }]);
+    expect(card('B').getByRole('checkbox')).toBeChecked();
+  } finally { quiet.mockRestore(); }
+});
+it('handles malformed memory and reports storage failure without preventing payment save', async () => {
+  localStorage.setItem('money-manager:category-memory:alice', '{bad json');
+  const original = Storage.prototype.setItem;
+  const spy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function(key, value) {
+    if (key.includes('category-memory')) throw new Error('Storage full');
+    return original.call(this, key, value);
+  });
+  try {
+    mount(); await screen.findByRole('article', { name: 'Detected payment A' });
+    fireEvent.click(card('A').getByRole('checkbox'));
+    fireEvent.click(card('A').getByRole('button', { name: 'Add' }));
+    await screen.findByText(/Category memory could not be saved/);
+    await waitFor(() => expect(screen.queryByRole('article', { name: 'Detected payment A' })).toBeNull());
+    expect(requests).toHaveLength(1);
+  } finally { spy.mockRestore(); }
+});
+it('keeps reviewed batch categories unchanged when an earlier row teaches the same recipient', async () => {
+  pending.push(item('B')); mount(); await screen.findByRole('button', { name: 'Add All' });
+  fireEvent.change(card('A').getByLabelText('Category'), { target: { value: 'Food' } });
+  fireEvent.click(card('A').getByRole('checkbox'));
+  fireEvent.click(screen.getByRole('button', { name: 'Add All' }));
+  await waitFor(() => expect(requests).toHaveLength(2));
+  expect(requests.map(row => row.category)).toEqual(['Food', 'Other']);
+  await waitFor(() => expect(screen.queryByRole('article', { name: 'Detected payment B' })).toBeNull());
+  pending.push(item('C')); await act(async () => mocks.callback());
+  expect(card('C').getByLabelText('Category')).toHaveValue('Food');
+});

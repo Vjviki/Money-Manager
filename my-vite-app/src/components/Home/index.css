@@ -105,3 +105,12 @@
 @media (min-width: 821px) {
   .detected-transaction-row { grid-template-columns: minmax(0, 1fr) minmax(200px, 1fr) auto; }
 }
+
+.category-memory-choice { display: flex; align-items: flex-start; gap: 8px; font-size: 0.85rem; }
+.detected-edit-fields .category-memory-choice input { width: auto; min-height: auto; flex: 0 0 auto; margin-top: 3px; }
+.category-memory-card { margin-block: 16px; }
+.category-memory-card summary { cursor: pointer; font-weight: 600; }
+.category-memory-card ul { padding: 0; list-style: none; }
+.category-memory-card li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block: 8px; }
+.category-memory-card li span { overflow-wrap: anywhere; min-width: 0; }
+.category-memory-card button { padding: 8px 12px; cursor: pointer; }

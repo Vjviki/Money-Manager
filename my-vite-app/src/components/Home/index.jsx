@@ -14,6 +14,7 @@ import {
   Wallet,
   X,
 } from "lucide-react";
+import useCategoryMemory, { recipientKey } from "../../hooks/useCategoryMemory";
 import useDetectedEdits from "../../hooks/useDetectedEdits";
 import LoadingState from "../LoadingState";
 import "./index.css";
@@ -42,6 +43,7 @@ const Home = () => {
 
   const token = Cookies.get("jwt_token");
   const detectedEdits = useDetectedEdits(token);
+  const categoryMemory = useCategoryMemory(token);
   const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token]);
 
   const loadHome = async () => {
@@ -158,7 +160,7 @@ const Home = () => {
     const draft = detectedEdits.edits[item.id] || {};
     const defaultTitle = item.merchant && item.merchant !== "Unknown"
       ? item.merchant : item.source || "Detected transaction";
-    const category = draft.category ?? item.category;
+    const category = draft.category ?? categoryMemory.categoryFor(item) ?? item.category;
     return {
       title: typeof draft.title === "string" ? draft.title : defaultTitle,
       category: categories.includes(category) ? category : "Other",
@@ -172,6 +174,10 @@ const Home = () => {
   };
   const editDetected = (id, field, value) => {
     if (!queueBusy.current) detectedEdits.update(id, field, value);
+  };
+
+  const rememberDetectedCategory = (item, category) => {
+    if (detectedEdits.edits[item.id]?.rememberCategory === true) categoryMemory.remember(item, category);
   };
 
   const buildDetectedPayload = (detectedTransaction) => {
@@ -212,13 +218,15 @@ const Home = () => {
     queueBusy.current = true;
     try {
       setReviewingId(detectedTransaction.id);
+      const payload = buildDetectedPayload(detectedTransaction);
       const response = await fetch(`${API}/`, {
         method: "POST",
         headers: { ...headers, "Content-Type": "application/json" },
-        body: JSON.stringify(buildDetectedPayload(detectedTransaction)),
+        body: JSON.stringify(payload),
       });
       if (!response.ok) throw new Error("Failed to add detected transaction");
 
+      rememberDetectedCategory(detectedTransaction, payload.category);
       await DetectedTransaction.removePending({ id: detectedTransaction.id });
       detectedEdits.remove(detectedTransaction.id);
       setDetectedTransactions((prev) => prev.filter((item) => item.id !== detectedTransaction.id));
@@ -240,13 +248,15 @@ const Home = () => {
     try {
       setAddingAll(true);
       let addedCount = 0;
-      for (const item of detectedTransactions) {
+      const batch = detectedTransactions.map(item => ({ item, payload: buildDetectedPayload(item) }));
+      for (const { item, payload } of batch) {
         const response = await fetch(`${API}/`, {
           method: "POST",
           headers: { ...headers, "Content-Type": "application/json" },
-          body: JSON.stringify(buildDetectedPayload(item)),
+          body: JSON.stringify(payload),
         });
         if (!response.ok) throw new Error(`Failed while adding ${item.merchant || "detected transaction"}`);
+        rememberDetectedCategory(item, payload.category);
         await DetectedTransaction.removePending({ id: item.id });
         detectedEdits.remove(item.id);
         setDetectedTransactions((prev) => prev.filter((pending) => pending.id !== item.id));
@@ -301,6 +311,19 @@ const Home = () => {
         </section>
       )}
       {Capacitor.isNativePlatform() && <p className="detected-kicker">Automatic tracking uses bank debit/credit notifications; payment-app confirmations are excluded to prevent duplicates.</p>}
+      {categoryMemory.storageError && <p role="alert">Category memory could not be saved on this device. Your payment can still be added.</p>}
+      {Object.keys(categoryMemory.rules).length > 0 && (
+        <details className="home-card category-memory-card">
+          <summary>Remembered categories ({Object.keys(categoryMemory.rules).length})</summary>
+          <p>Saved for your account on this device. Forget a rule to stop suggesting it. Existing transactions and your edits stay unchanged.</p>
+          <ul>{Object.entries(categoryMemory.rules).map(([id, rule]) => (
+            <li key={id}><span>{rule.merchant} · {rule.type} → {rule.category}</span>
+              <button type="button" onClick={() => categoryMemory.forget(id)} disabled={addingAll || reviewingId !== null}
+                aria-label={`Forget ${rule.type} category for ${rule.merchant}`}>Forget</button>
+            </li>
+          ))}</ul>
+        </details>
+      )}
       {detectedTransactions.length > 0 && (
         <section className="detected-queue-card">
           <div className="detected-queue-header">
@@ -341,6 +364,14 @@ const Home = () => {
                     disabled={addingAll || reviewingId !== null}>
                     {categories.map((category) => <option key={category} value={category}>{category}</option>)}
                   </select>
+                  {categoryMemory.categoryFor(item) && !detectedEdits.edits[item.id]?.category &&
+                    <small>Suggested from your remembered category.</small>}
+                  {categoryMemory.available && recipientKey(item) && <label className="category-memory-choice">
+                    <input type="checkbox" checked={detectedEdits.edits[item.id]?.rememberCategory === true}
+                      onChange={(event) => editDetected(item.id, "rememberCategory", event.target.checked)}
+                      disabled={addingAll || reviewingId !== null} />
+                    Remember this category for {item.merchant} when I add this payment
+                  </label>}
                 </div>
                 <div className="detected-actions">
                   <button className="detected-add-button" type="button" onClick={() => addDetectedTransaction(item)} disabled={addingAll || reviewingId !== null}>
