@@ -5,7 +5,8 @@
   "scripts": {
     "start": "node index.js",
     "test": "node --test tests/auth.test.js",
-    "test:integration": "node --test tests/auth-mongo.integration.js"
+    "test:integration": "node --test tests/auth-mongo.integration.js",
+    "test:archive": "node --test tests/archive.test.js tests/archive-mongo.integration.js"
   },
   "keywords": [],
   "author": "",

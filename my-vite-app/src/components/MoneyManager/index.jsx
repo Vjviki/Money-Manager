@@ -1,3 +1,4 @@
+import { archiveTransactions } from "../../utils/archive";
 import { apiFetch } from "../../utils/session";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
@@ -217,7 +218,7 @@ const MoneyManager = () => {
 
   const resetMonth = async () => {
     const confirmReset = window.confirm(
-      "Are you sure you want to reset this month?",
+      "Archive all current transactions into their transaction months?",
     );
 
     if (!confirmReset) {
@@ -227,22 +228,12 @@ const MoneyManager = () => {
     try {
       const jwtToken = Cookies.get("jwt_token");
 
-      const response = await apiFetch(
-        "https://money-manager-wmon.onrender.com/reset-month",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${jwtToken}`,
-          },
-        },
-      );
-
-      if (response.ok) {
-        toast.success("Month reset completed");
-        fetchUserData();
-      }
+      const result = await archiveTransactions("https://money-manager-wmon.onrender.com", jwtToken);
+      toast.success(`${result.archivedCount} transactions archived`);
+      await fetchUserData();
     } catch (error) {
       console.log("Reset error:", error);
+      toast.error(error.message || "Unable to archive transactions");
     }
   };
 

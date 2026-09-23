@@ -22,7 +22,7 @@ const backend=readFileSync(new URL('../../backend/index.js',import.meta.url),'ut
 const route=backend.slice(backend.indexOf('app.post("/", authenticateToken'),backend.indexOf('\napp.get("/", authenticateToken'));
 test('backend retry acknowledges an existing payment, IDs scoped to user',async()=>{
  let handler;const rows=new Map();const Transaction={init:async()=>{},create:async row=>{const key=row.user_id+':'+row.detected_id;if(rows.has(key))throw Object.assign(new Error('duplicate'),{code:11000});rows.set(key,row);},exists:async row=>rows.has(row.user_id+':'+row.detected_id)};
- new Function('app','authenticateToken','Transaction',route)({post:(_p,_a,fn)=>{handler=fn;}},()=>{},Transaction);
+ new Function('app','authenticateToken','Transaction','archiveService',route)({post:(_p,_a,fn)=>{handler=fn;}},()=>{},Transaction,{addTransaction:Transaction.create});
  const req={user:{id:'user-1'},body:{detected_id:'v2-payment',amount:20,type:'Income'}};const responses=[];
  const res={send:value=>responses.push(value),status(code){throw Error(`Unexpected HTTP ${code}`);}};
  await handler(req,res);await handler(req,res);assert.equal(rows.size,1);assert.equal(responses[1].message,'Transaction already added');await handler({...req,user:{id:'user-2'}},res);assert.equal(rows.size,2);
