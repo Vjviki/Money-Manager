@@ -1,3 +1,4 @@
+import { apiFetch } from "../../utils/session";
 import { useEffect, useMemo, useState } from "react";
 import Cookies from "js-cookie";
 import { Capacitor } from "@capacitor/core";
@@ -40,9 +41,9 @@ const Analytics = () => {
       try {
         setLoading(true);
         const [summaryRes, categoryRes, monthlyRes] = await Promise.all([
-          fetch(`${API}/`, { headers }),
-          fetch(`${API}/analytics`, { headers }),
-          fetch(`${API}/monthly-summary`, { headers }),
+          apiFetch(`${API}/`, { headers }),
+          apiFetch(`${API}/analytics`, { headers }),
+          apiFetch(`${API}/monthly-summary`, { headers }),
         ]);
         if (!summaryRes.ok || !categoryRes.ok || !monthlyRes.ok) throw new Error("Failed to load analytics");
         const [summary, categories, months] = await Promise.all([
@@ -77,7 +78,7 @@ const Analytics = () => {
     setSelectedMonth(month);
     setDetailLoading(true);
     try {
-      const response = await fetch(`${API}/monthly-details/${month}`, { headers });
+      const response = await apiFetch(`${API}/monthly-details/${month}`, { headers });
       if (!response.ok) throw new Error("Unable to load month details");
       const data = await response.json();
       setMonthDetails(data.transactions || []);
@@ -110,7 +111,7 @@ const Analytics = () => {
 
   const downloadMonth = async (month) => {
     try {
-      const response = await fetch(`${API}/export-month/${month}`, { headers });
+      const response = await apiFetch(`${API}/export-month/${month}`, { headers });
       if (!response.ok) throw new Error("Export failed");
       const blob = await response.blob();
       if (!Capacitor.isNativePlatform()) {

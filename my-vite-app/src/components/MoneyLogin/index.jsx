@@ -1,3 +1,4 @@
+import { validToken } from "../../utils/session";
 import { useState } from "react";
 import { useNavigate, Link, Navigate } from "react-router-dom";
 import { Eye, EyeOff, KeyRound, LoaderCircle } from "lucide-react";
@@ -18,7 +19,9 @@ const MoneyLogin = () => {
 
   const onSubmitSuccess = (jwtToken) => {
     Cookies.set("jwt_token", jwtToken, {
-      expires: 10,
+      expires: 1,
+      sameSite: "strict",
+      secure: window.location.protocol === "https:",
       path: "/",
     });
     navigate("/");
@@ -69,8 +72,8 @@ const MoneyLogin = () => {
     }
   };
 
-  const token = Cookies.get("jwt_token");
-  if (token !== undefined) {
+  const token = validToken();
+  if (token) {
     return <Navigate to="/" replace />;
   }
 
