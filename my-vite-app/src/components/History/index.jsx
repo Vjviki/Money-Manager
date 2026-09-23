@@ -1,5 +1,6 @@
+import { archiveTransactions } from "../../utils/archive";
 import { apiFetch } from "../../utils/session";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Cookies from "js-cookie";
 import toast from "react-hot-toast";
 import { RotateCcw, Search, SlidersHorizontal, X } from "lucide-react";
@@ -24,6 +25,7 @@ const getLocalDateKey = (value) => {
 const History = () => {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const resetBusy = useRef(false);
   const [resetting, setResetting] = useState(false);
   const [query, setQuery] = useState("");
   const [type, setType] = useState("ALL");
@@ -151,20 +153,21 @@ const History = () => {
   };
 
   const resetMonth = async () => {
-    if (transactions.length === 0) return toast.error("There are no transactions to archive");
-    const confirmReset = window.confirm("Archive this month's transactions and clear the current History? You can view the archived records in Analytics.");
+    if (resetBusy.current) return;
+    const confirmReset = window.confirm("Archive all current transactions? Each payment will appear under its transaction month in Analytics. Payments added during archiving will remain in History.");
     if (!confirmReset) return;
     try {
+      resetBusy.current = true;
       setResetting(true);
-      const response = await apiFetch(`${API}/reset-month`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
-      if (!response.ok) throw new Error("Monthly reset failed");
+      const result = await archiveTransactions(API, token);
       clearFilters();
-      setTransactions([]);
-      toast.success("Month archived successfully");
+      toast.success(`${result.archivedCount} transactions archived`);
+      await loadTransactions();
     } catch (error) {
       console.error(error);
-      toast.error("Unable to reset this month");
+      toast.error(error.message || "Unable to archive transactions");
     } finally {
+      resetBusy.current = false;
       setResetting(false);
     }
   };
@@ -175,7 +178,7 @@ const History = () => {
         <div><p>Transactions</p><h1>Transaction History</h1><span>Search, filter and manage every transaction in one place.</span></div>
         <div className="history-heading-actions">
           <div className="history-count">{filtered.length} records</div>
-          <button type="button" className="reset-month-btn" onClick={resetMonth} disabled={resetting}><RotateCcw size={17} />{resetting ? "Archiving..." : "Reset Month"}</button>
+          <button type="button" className="reset-month-btn" onClick={resetMonth} disabled={resetting}><RotateCcw size={17} />{resetting ? "Archiving..." : "Archive Transactions"}</button>
         </div>
       </div>
 

@@ -3,11 +3,12 @@ const cors = require("cors");
 const express = require("express");
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
-const { randomInt } = require("node:crypto");
+const { randomInt, randomUUID } = require("node:crypto");
 const { authConfig, createAuth, validPassword, versionFilter, limiter, identityKey } = require("./auth");
 const { secret: JWT_SECRET, hops } = authConfig(process.env);
 const nodemailer = require("nodemailer");
 const ExcelJS = require("exceljs");
+const { createArchiveService } = require("./archive");
 
 const app = express();
 app.use(cors({ origin: "*" }));
@@ -29,6 +30,7 @@ const User = mongoose.model(
       email: { type: String, unique: true },
       password: { type: String, required: true },
       token_version: { type: Number, default: 0 },
+      archive_revision: { type: Number, default: 0, select: false },
     },
     { timestamps: { createdAt: "created_at", updatedAt: false } },
   ),
@@ -60,8 +62,20 @@ const Backup = mongoose.model(
     category: String,
     date: String,
     backup_month: String,
-  }),
+    source_id: mongoose.Schema.Types.ObjectId,
+    detected_id: String,
+  }).index({ user_id: 1, source_id: 1 }, {
+    unique: true, partialFilterExpression: { source_id: { $type: "objectId" } },
+  }).index({ user_id: 1, detected_id: 1 }).index({ user_id: 1, backup_month: 1 }),
 );
+
+const ArchiveReset = mongoose.model("ArchiveReset", new mongoose.Schema({
+  user_id: mongoose.Schema.Types.ObjectId,
+  request_id: String,
+  archived_count: Number,
+  created_at: { type: Date, default: Date.now },
+}).index({ user_id: 1, request_id: 1 }, { unique: true }));
+const archiveService = createArchiveService({ mongoose, User, Transaction, Backup, ArchiveReset });
 
 const PasswordReset = mongoose.model(
   "PasswordReset",
@@ -283,7 +297,7 @@ app.post("/", authenticateToken, async (req, res) => {
   try {
     // Ensure the unique index exists before accepting retryable notification uploads.
     if (detected_id) await Transaction.init();
-    await Transaction.create({
+    await archiveService.addTransaction({
       user_id: req.user.id, title, amount, type, category, created_at,
       ...(detected_id ? { detected_id } : {}),
     });
@@ -366,26 +380,20 @@ app.get("/analytics", authenticateToken, async (req, res) => {
   );
 });
 
-app.post("/reset-month", authenticateToken, async (req, res) => {
-  const currentMonth = new Date().toISOString().slice(0, 7);
-  const transactions = await Transaction.find({ user_id: req.user.id });
-
-  const backupData = transactions.map((t) => ({
-    user_id: req.user.id,
-    title: t.title,
-    amount: t.amount,
-    type: t.type,
-    category: t.category,
-    date: t.created_at,
-    backup_month: currentMonth,
-  }));
-
-  if (backupData.length > 0) {
-    await Backup.insertMany(backupData);
+app.post("/reset-month", authenticateToken, limiter(20, req => req.user.id), async (req, res) => {
+  const requestId = req.get("Idempotency-Key") || randomUUID();
+  if (!/^[a-zA-Z0-9_-]{16,100}$/.test(requestId)) {
+    return res.status(400).json({ error: "Invalid archive request ID" });
   }
-
-  await Transaction.deleteMany({ user_id: req.user.id });
-  res.send({ message: "Monthly reset completed" });
+  try {
+    const archivedCount = await archiveService.archive(req.user.id, requestId);
+    res.json({ message: "Archive completed", archivedCount, requestId });
+  } catch (error) {
+    console.error("Monthly archive failed:", error.message);
+    res.status(error.status || 503).json({ error: error.status === 413
+      ? "Too many transactions for one archive. Contact support."
+      : "Unable to confirm archive completion. Retry the same request." });
+  }
 });
 
 app.get("/monthly-summary", authenticateToken, async (req, res) => {
@@ -483,11 +491,11 @@ app.use((error, req, res, next) => {
 
 async function start() {
   await mongoose.connect(process.env.MONGO_URL);
-  await Promise.all([User.init(), PasswordReset.init()]);
+  await Promise.all([User.init(), PasswordReset.init(), Transaction.init(), Backup.init(), ArchiveReset.init()]);
   return app.listen(PORT, () => console.log(`Server Running on ${PORT}`));
 }
 if (require.main === module) start().catch(() => {
   console.error("Database connection or required index initialization failed");
   process.exit(1);
 });
-module.exports = { app, start, User, PasswordReset };
+module.exports = { app, start, User, PasswordReset, Transaction, Backup, ArchiveReset, archiveService };
