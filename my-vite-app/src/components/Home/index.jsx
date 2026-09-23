@@ -417,7 +417,7 @@ const Home = () => {
                 <div className={`recent-type-icon ${transaction.type === "Income" ? "recent-income-icon" : "recent-expense-icon"}`}>{transaction.type === "Income" ? <ArrowUpRight size={18} /> : <ArrowDownRight size={18} />}</div>
                 <div className="recent-main"><strong>{transaction.title}</strong><span>{transaction.category}</span></div>
                 <span className="recent-date">{new Date(transaction.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span>
-                <strong className={transaction.type === "Income" ? "income-value" : "expense-value"}>{transaction.type === "Income" ? "+ " : "- "}{privateMoney(transaction.amount)}</strong>
+                <strong className={transaction.type === "Income" ? "income-value" : "expense-value"}>{transaction.type === "Income" ? "+ " : "- "}{transaction.amount}</strong>
               </div>
             ))}
           </div>

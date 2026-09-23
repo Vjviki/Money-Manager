@@ -241,7 +241,7 @@ const UserProfile = () => {
 
       closePasswordModal();
       toast.success("Password changed. Please sign in again.");
-      endSession(token);
+      endSession(jwtToken);
     } catch (err) {
       console.error(err);
       toast.error(err.message || "Unable to change password");
