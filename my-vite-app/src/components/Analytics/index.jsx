@@ -22,6 +22,15 @@ import "./index.css";
 const API = "https://money-manager-wmon.onrender.com";
 const COLORS = ["#7c3aed", "#22c55e", "#f59e0b", "#ef4444", "#06b6d4", "#a855f7", "#84cc16"];
 
+const formatArchiveDate = (value) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString("en-GB", {
+    day: "2-digit", month: "short", year: "numeric", timeZone: "UTC",
+  });
+};
+
 const Analytics = () => {
   const [summaryData, setSummaryData] = useState([]);
   const [categoryData, setCategoryData] = useState([]);
@@ -232,7 +241,7 @@ const Analytics = () => {
                   <div><span>Expenses</span><strong className="expense-metric">{privateMoney(detailStats.expenses)}</strong></div>
                   <div><span>Savings</span><strong>{privateMoney(detailStats.savings)}</strong></div>
                 </div>
-                <div className="drawer-section"><h3>Transactions</h3><div className="drawer-transactions">{monthDetails.length ? monthDetails.map((item) => <div className="drawer-row" key={item._id}><div><strong>{item.title}</strong><span>{item.category || "Other"}</span></div><div><strong className={item.type === "Income" ? "income-metric" : "expense-metric"}>{item.type === "Income" ? "+ " : "- "}{privateMoney(item.amount)}</strong><span>{item.date || ""}</span></div></div>) : <div className="analytics-empty">No transaction details found.</div>}</div></div>
+                <div className="drawer-section"><h3>Transactions</h3><div className="drawer-transactions">{monthDetails.length ? monthDetails.map((item) => <div className="drawer-row" key={item._id}><div><strong>{item.title}</strong><span>{item.category || "Other"}</span></div><div><strong className={item.type === "Income" ? "income-metric" : "expense-metric"}>{item.type === "Income" ? "+ " : "- "}{privateMoney(item.amount)}</strong><span>{formatArchiveDate(item.date)}</span></div></div>) : <div className="analytics-empty">No transaction details found.</div>}</div></div>
                 <div className="drawer-section"><h3>Expense by Category</h3>{categoryArray.length ? categoryArray.map(([name, total]) => <div className="category-row-modern" key={name}><span>{name}</span><strong>{privateMoney(total)}</strong></div>) : <div className="analytics-empty">No expense data.</div>}</div>
                 <button className="drawer-download" onClick={() => downloadMonth(selectedMonth)}><Download size={18} /> Download Excel</button>
               </>
