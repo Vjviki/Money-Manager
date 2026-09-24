@@ -1,6 +1,6 @@
 import { archiveTransactions } from "../../utils/archive";
 import { apiFetch } from "../../utils/session";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Cookies from "js-cookie";
 import toast from "react-hot-toast";
 import { RotateCcw, Search, SlidersHorizontal, X } from "lucide-react";
@@ -9,7 +9,7 @@ import LoadingState from "../LoadingState";
 import "./index.css";
 
 const API = "https://money-manager-wmon.onrender.com";
-const ITEMS_PER_PAGE = 10;
+const ITEMS_PER_PAGE = 20;
 const normalizeText = (value = "") => value.trim().toLowerCase();
 
 const getLocalDateKey = (value) => {
@@ -39,61 +39,67 @@ const History = () => {
 
   const token = Cookies.get("jwt_token");
 
-  const loadTransactions = async () => {
-    try {
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [categories, setCategories] = useState([]);
+  const [search, setSearch] = useState("");
+  const [revision, setRevision] = useState(0);
+  const [loadError, setLoadError] = useState("");
+  const latestRequest = useRef(0);
+  const loadTransactions = () => setRevision(value => value + 1);
+
+  useEffect(() => {
+    if (query.trim() === search) return;
+    const timer = setTimeout(() => { setSearch(query.trim()); setPage(1); }, 250);
+    return () => clearTimeout(timer);
+  }, [query, search]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const requestId = ++latestRequest.current;
+    const load = async () => {
       setLoading(true);
-      const response = await apiFetch(`${API}/transactions`, { headers: { Authorization: `Bearer ${token}` } });
-      if (!response.ok) throw new Error("Failed to load transactions");
-      const data = await response.json();
-      setTransactions(data.transactions || []);
-    } catch (error) {
-      console.error(error);
-      toast.error("Unable to load transaction history");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => { loadTransactions(); }, []);
-
-  const categories = useMemo(() => {
-    const unique = new Map();
-    transactions.forEach((item) => {
-      const label = item.category?.trim();
-      if (!label) return;
-      const key = normalizeText(label);
-      if (!unique.has(key)) unique.set(key, label);
-    });
-    return [...unique.values()].sort((a, b) => a.localeCompare(b));
-  }, [transactions]);
-
-  const filtered = useMemo(() => {
-    const normalizedQuery = normalizeText(query);
-    const normalizedCategory = normalizeText(category);
-    return [...transactions].filter((item) => {
-      const titleText = normalizeText(item.title);
-      const categoryText = normalizeText(item.category);
-      const textMatch = !normalizedQuery || titleText.includes(normalizedQuery) || categoryText.includes(normalizedQuery);
-      const typeMatch = type === "ALL" || item.type === type;
-      const categoryMatch = category === "ALL" || categoryText === normalizedCategory;
-      const itemDateKey = getLocalDateKey(item.created_at);
-      const fromMatch = !fromDate || (itemDateKey && itemDateKey >= fromDate);
-      const toMatch = !toDate || (itemDateKey && itemDateKey <= toDate);
-      return textMatch && typeMatch && categoryMatch && fromMatch && toMatch;
-    }).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-  }, [transactions, query, type, category, fromDate, toDate]);
-
-  useEffect(() => { setPage(1); }, [query, type, category, fromDate, toDate]);
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
-  const paginated = filtered.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+      setLoadError("");
+      try {
+        if (fromDate && toDate && fromDate > toDate) throw new Error("From date must be on or before To date");
+        const params = new URLSearchParams({ page: String(page), limit: String(ITEMS_PER_PAGE), categories: "1" });
+        if (search) params.set("q", search);
+        if (type !== "ALL") params.set("type", type);
+        if (category !== "ALL") params.set("category", category);
+        if (fromDate) params.set("from", new Date(`${fromDate}T00:00:00`).toISOString());
+        if (toDate) {
+          const end = new Date(`${toDate}T00:00:00`);
+          end.setDate(end.getDate() + 1);
+          params.set("to", end.toISOString());
+        }
+        const response = await apiFetch(`${API}/transactions?${params}`, {
+          headers: { Authorization: `Bearer ${token}` }, signal: controller.signal,
+        });
+        if (!response.ok) throw new Error("Unable to load transaction history. Please retry.");
+        const data = await response.json();
+        if (controller.signal.aborted || requestId !== latestRequest.current) return;
+        setTransactions(data.transactions || []);
+        setTotal(data.total ?? data.transactions?.length ?? 0);
+        setTotalPages(data.totalPages || 1);
+        setCategories(data.categories || []);
+        if (data.page && data.page !== page) setPage(data.page);
+      } catch (error) {
+        if (controller.signal.aborted || requestId !== latestRequest.current) return;
+        setLoadError(error.message || "Unable to load transaction history");
+      } finally {
+        if (!controller.signal.aborted && requestId === latestRequest.current) setLoading(false);
+      }
+    };
+    load();
+    return () => controller.abort();
+  }, [token, page, search, type, category, fromDate, toDate, revision]);
 
   const deleteTransaction = async (id) => {
     if (!window.confirm("Delete this transaction?")) return;
     try {
       const response = await apiFetch(`${API}/transactions/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
       if (!response.ok) throw new Error("Delete failed");
-      setTransactions((prev) => prev.filter((item) => item._id !== id));
+      loadTransactions();
       toast.success("Transaction deleted");
     } catch (error) {
       console.error(error);
@@ -136,8 +142,7 @@ const History = () => {
         }),
       });
       if (!response.ok) throw new Error("Update failed");
-      const data = await response.json();
-      setTransactions((prev) => prev.map((item) => item._id === editing._id ? data.transaction : item));
+      loadTransactions();
       setEditing(null);
       toast.success("Transaction updated");
     } catch (error) {
@@ -149,7 +154,7 @@ const History = () => {
   };
 
   const clearFilters = () => {
-    setQuery(""); setType("ALL"); setCategory("ALL"); setFromDate(""); setToDate(""); setPage(1);
+    setQuery(""); setSearch(""); setType("ALL"); setCategory("ALL"); setFromDate(""); setToDate(""); setPage(1);
   };
 
   const resetMonth = async () => {
@@ -177,7 +182,7 @@ const History = () => {
       <div className="history-page-heading">
         <div><p>Transactions</p><h1>Transaction History</h1><span>Search, filter and manage every transaction in one place.</span></div>
         <div className="history-heading-actions">
-          <div className="history-count">{filtered.length} records</div>
+          <div className="history-count">{total} records</div>
           <button type="button" className="reset-month-btn" onClick={resetMonth} disabled={resetting}><RotateCcw size={17} />{resetting ? "Archiving..." : "Archive Transactions"}</button>
         </div>
       </div>
@@ -186,19 +191,19 @@ const History = () => {
         <div className="history-toolbar-title"><SlidersHorizontal size={18} /> Filters</div>
         <div className="history-toolbar">
           <label className="history-search"><Search size={18} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search title or category..." /></label>
-          <select value={category} onChange={(e) => setCategory(e.target.value)}><option value="ALL">All categories</option>{categories.map((item) => <option key={normalizeText(item)} value={item}>{item}</option>)}</select>
-          <select value={type} onChange={(e) => setType(e.target.value)}><option value="ALL">All types</option><option value="Income">Income</option><option value="Expenses">Expense</option></select>
-          <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} aria-label="From date" />
-          <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} aria-label="To date" />
+          <select value={category} onChange={(e) => { setCategory(e.target.value); setPage(1); }}><option value="ALL">All categories</option>{categories.map((item) => <option key={normalizeText(item)} value={item}>{item}</option>)}</select>
+          <select value={type} onChange={(e) => { setType(e.target.value); setPage(1); }}><option value="ALL">All types</option><option value="Income">Income</option><option value="Expenses">Expense</option></select>
+          <input type="date" value={fromDate} onChange={(e) => { setFromDate(e.target.value); setPage(1); }} aria-label="From date" />
+          <input type="date" value={toDate} onChange={(e) => { setToDate(e.target.value); setPage(1); }} aria-label="To date" />
           <button type="button" className="clear-filter-btn" onClick={clearFilters}>Clear Filters</button>
         </div>
       </section>
 
       <section className="history-panel history-records-panel">
         <div className="history-table-head"><span>Date</span><span>Title & Category</span><span>Amount</span><span>Type</span><span>Action</span></div>
-        {loading ? <LoadingState variant="list" rows={5} label="Loading transaction history..." /> : <>
+        {loading ? <LoadingState variant="list" rows={5} label="Loading transaction history..." /> : loadError ? <div className="history-empty" role="alert">{loadError} <button type="button" onClick={loadTransactions}>Retry</button></div> : <>
           <ul className="history-list">
-            {paginated.length === 0 ? <div className="history-empty">No transactions match these filters.</div> : paginated.map((transaction) => <TransactionItem key={transaction._id} transactionDetails={transaction} deleteTransaction={deleteTransaction} editTransaction={editTransaction} />)}
+            {transactions.length === 0 ? <div className="history-empty">No transactions match these filters.</div> : transactions.map((transaction) => <TransactionItem key={transaction._id} transactionDetails={transaction} deleteTransaction={deleteTransaction} editTransaction={editTransaction} />)}
           </ul>
           <div className="history-pagination">
             <button type="button" disabled={page === 1} onClick={() => setPage((prev) => prev - 1)}>Previous</button>

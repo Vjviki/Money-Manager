@@ -53,7 +53,7 @@ const Home = () => {
       const [profileRes, summaryRes, transactionsRes] = await Promise.all([
         apiFetch(`${API}/profile`, { headers }),
         apiFetch(`${API}/`, { headers }),
-        apiFetch(`${API}/transactions`, { headers }),
+        apiFetch(`${API}/transactions?page=1&limit=5`, { headers }),
       ]);
       if (!profileRes.ok || !summaryRes.ok || !transactionsRes.ok) throw new Error("Failed to load dashboard");
       const [profileData, summaryData, transactionData] = await Promise.all([profileRes.json(), summaryRes.json(), transactionsRes.json()]);
