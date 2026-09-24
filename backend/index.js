@@ -9,6 +9,7 @@ const { secret: JWT_SECRET, hops } = authConfig(process.env);
 const nodemailer = require("nodemailer");
 const ExcelJS = require("exceljs");
 const { createArchiveService } = require("./archive");
+const { createTransactionQueries } = require("./transaction-queries");
 
 const app = express();
 app.use(cors({ origin: "*" }));
@@ -49,7 +50,8 @@ const Transaction = mongoose.model(
   }).index({ user_id: 1, detected_id: 1 }, {
     unique: true,
     partialFilterExpression: { detected_id: { $type: "string" } },
-  }),
+  }).index({ user_id: 1, created_at: -1, _id: -1 })
+    .index({ user_id: 1, type: 1, created_at: -1, _id: -1 }),
 );
 
 const Backup = mongoose.model(
@@ -76,6 +78,7 @@ const ArchiveReset = mongoose.model("ArchiveReset", new mongoose.Schema({
   created_at: { type: Date, default: Date.now },
 }).index({ user_id: 1, request_id: 1 }, { unique: true }));
 const archiveService = createArchiveService({ mongoose, User, Transaction, Backup, ArchiveReset });
+const transactionQueries = createTransactionQueries(Transaction, mongoose);
 
 const PasswordReset = mongoose.model(
   "PasswordReset",
@@ -312,22 +315,23 @@ app.post("/", authenticateToken, async (req, res) => {
 });
 
 app.get("/", authenticateToken, async (req, res) => {
-  const transactions = await Transaction.find({ user_id: req.user.id });
-
-  let income = 0;
-  let expenses = 0;
-
-  transactions.forEach((t) => {
-    if (t.type === "Income") income += t.amount;
-    else expenses += t.amount;
-  });
-
-  res.send({ income, expenses, balance: income - expenses });
+  try { res.json(await transactionQueries.summary(req.user.id)); }
+  catch { res.status(503).json({ error: "Unable to load totals right now" }); }
 });
 
 app.get("/transactions", authenticateToken, async (req, res) => {
-  const transactions = await Transaction.find({ user_id: req.user.id });
-  res.send({ transactions });
+  try {
+    // Older installed apps still expect a complete list. New screens opt in to
+    // pagination with query parameters; retire this compatibility path later.
+    if (Object.keys(req.query).length === 0) {
+      const transactions = await Transaction.find({ user_id: req.user.id }).maxTimeMS(10000).lean();
+      return res.json({ transactions });
+    }
+    res.json(await transactionQueries.list(req.user.id, req.query));
+  } catch (error) {
+    res.status(error.status === 400 ? 400 : 503).json({ error: error.status === 400
+      ? "Invalid transaction filters" : "Unable to load transactions right now" });
+  }
 });
 
 app.put("/transactions/:id", authenticateToken, async (req, res) => {

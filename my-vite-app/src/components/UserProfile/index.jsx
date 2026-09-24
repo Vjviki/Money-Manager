@@ -56,7 +56,6 @@ const PasswordInput = ({
 const UserProfile = () => {
   const [userData, setUserData] = useState({});
   const [summary, setSummary] = useState({ balance: 0, income: 0, expenses: 0 });
-  const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [editing, setEditing] = useState(false);
@@ -83,20 +82,18 @@ const UserProfile = () => {
   const loadProfile = async () => {
     try {
       setLoading(true);
-      const [profileRes, summaryRes, transactionRes] = await Promise.all([
+      const [profileRes, summaryRes] = await Promise.all([
         apiFetch(`${API}/profile`, { headers }),
         apiFetch(`${API}/`, { headers }),
-        apiFetch(`${API}/transactions`, { headers }),
       ]);
 
-      if (!profileRes.ok || !summaryRes.ok || !transactionRes.ok) {
+      if (!profileRes.ok || !summaryRes.ok) {
         throw new Error("Failed to load profile");
       }
 
-      const [profileData, summaryData, transactionData] = await Promise.all([
+      const [profileData, summaryData] = await Promise.all([
         profileRes.json(),
         summaryRes.json(),
-        transactionRes.json(),
       ]);
 
       setUserData(profileData || {});
@@ -106,7 +103,6 @@ const UserProfile = () => {
         gender: profileData?.gender || "Male",
       });
       setSummary(summaryData || {});
-      setTransactions(transactionData.transactions || []);
       setError(null);
     } catch (err) {
       console.error(err);
@@ -307,7 +303,7 @@ const UserProfile = () => {
         <article><span>Total Balance</span><strong>{privateMoney(summary.balance)}</strong><WalletCards size={18} /></article>
         <article><span>Monthly Income</span><strong className="profile-income">{privateMoney(summary.income)}</strong></article>
         <article><span>Monthly Expenses</span><strong className="profile-expense">{privateMoney(summary.expenses)}</strong></article>
-        <article><span>Total Transactions</span><strong>{transactions.length}</strong></article>
+        <article><span>Total Transactions</span><strong>{summary.transactionCount || 0}</strong></article>
       </section>
 
       <section className="profile-card-grid">
@@ -324,7 +320,7 @@ const UserProfile = () => {
           <div className="profile-detail-row"><span>Member since</span><strong>{memberSince}</strong></div>
           <div className="profile-detail-row"><span>Currency</span><strong>INR (₹)</strong></div>
           <div className="profile-detail-row"><span>Account status</span><strong className="status-active">Active</strong></div>
-          <div className="profile-detail-row"><span>Recorded transactions</span><strong>{transactions.length}</strong></div>
+          <div className="profile-detail-row"><span>Recorded transactions</span><strong>{summary.transactionCount || 0}</strong></div>
         </article>
       </section>
 
