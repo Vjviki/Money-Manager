@@ -7,7 +7,8 @@
     "test": "node --test tests/auth.test.js",
     "test:integration": "node --test tests/auth-mongo.integration.js",
     "test:archive": "node --test tests/archive.test.js tests/archive-mongo.integration.js",
-    "test:queries": "node --test tests/transaction-queries.test.js tests/transaction-queries-mongo.integration.js"
+    "test:queries": "node --test tests/transaction-queries.test.js tests/transaction-queries-mongo.integration.js",
+    "test:budgets": "node --test tests/budgets.test.js tests/budgets-mongo.integration.js"
   },
   "keywords": [],
   "author": "",
