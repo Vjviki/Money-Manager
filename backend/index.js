@@ -8,6 +8,7 @@ const { authConfig, createAuth, validPassword, versionFilter, limiter, identityK
 const { secret: JWT_SECRET, hops } = authConfig(process.env);
 const nodemailer = require("nodemailer");
 const ExcelJS = require("exceljs");
+const { createBudgetHandlers } = require("./budgets");
 const { createArchiveService } = require("./archive");
 const { createTransactionQueries } = require("./transaction-queries");
 
@@ -71,6 +72,14 @@ const Backup = mongoose.model(
   }).index({ user_id: 1, detected_id: 1 }).index({ user_id: 1, backup_month: 1 }),
 );
 
+const Budget = mongoose.model("Budget", new mongoose.Schema({
+  user_id: { type: mongoose.Schema.Types.ObjectId, required: true },
+  month: { type: String, required: true },
+  category: { type: String, required: true },
+  category_key: { type: String, required: true },
+  limit_paise: { type: Number, required: true, min: 1 },
+}).index({ user_id: 1, month: 1, category_key: 1 }, { unique: true }));
+
 const ArchiveReset = mongoose.model("ArchiveReset", new mongoose.Schema({
   user_id: mongoose.Schema.Types.ObjectId,
   request_id: String,
@@ -92,6 +101,11 @@ const PasswordReset = mongoose.model(
 );
 
 const { authenticateToken, login, register, changePassword } = createAuth(User, JWT_SECRET);
+
+const budgetHandlers = createBudgetHandlers({ mongoose, Budget, Transaction, Backup });
+app.get("/budgets", authenticateToken, budgetHandlers.list);
+app.put("/budgets/:month", authenticateToken, limiter(60, req => req.user.id), budgetHandlers.save);
+app.delete("/budgets/:month/:id", authenticateToken, budgetHandlers.remove);
 
 const getMailTransporter = () => {
   const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS } = process.env;
@@ -495,11 +509,11 @@ app.use((error, req, res, next) => {
 
 async function start() {
   await mongoose.connect(process.env.MONGO_URL);
-  await Promise.all([User.init(), PasswordReset.init(), Transaction.init(), Backup.init(), ArchiveReset.init()]);
+  await Promise.all([User.init(), PasswordReset.init(), Transaction.init(), Backup.init(), ArchiveReset.init(), Budget.init()]);
   return app.listen(PORT, () => console.log(`Server Running on ${PORT}`));
 }
 if (require.main === module) start().catch(() => {
   console.error("Database connection or required index initialization failed");
   process.exit(1);
 });
-module.exports = { app, start, User, PasswordReset, Transaction, Backup, ArchiveReset, archiveService };
+module.exports = { app, start, User, PasswordReset, Transaction, Backup, ArchiveReset, archiveService, Budget };

@@ -6,6 +6,7 @@ import MoneyLogin from "./components/MoneyLogin";
 import MoneyRegister from "./components/MoneyRegister";
 import UserProfile from "./components/UserProfile";
 import ProtectedRoutes from "./components/ProtectedRoutes";
+import Budgets from "./components/Budgets";
 import Analytics from "./components/Analytics";
 
 import "./App.css";
@@ -30,6 +31,7 @@ const App = () => {
           <Route path="/" element={<Home />} />
           <Route path="/history" element={<History />} />
           <Route path="/analytics" element={<Analytics />} />
+          <Route path="/budgets" element={<Budgets />} />
           <Route path="/profile" element={<UserProfile />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

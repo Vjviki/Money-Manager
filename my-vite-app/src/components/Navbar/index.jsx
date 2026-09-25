@@ -1,5 +1,6 @@
 import {
   BarChart3,
+  Target,
   History,
   Home,
   LogOut,
@@ -15,6 +16,7 @@ const navigation = [
   { to: "/", label: "Home", icon: Home, end: true },
   { to: "/history", label: "History", icon: History },
   { to: "/analytics", label: "Analytics", icon: BarChart3 },
+  { to: "/budgets", label: "Budgets", icon: Target },
   { to: "/profile", label: "Profile", icon: UserRound },
 ];
 
