@@ -27,6 +27,12 @@ const History = () => {
   const [loading, setLoading] = useState(true);
   const resetBusy = useRef(false);
   const [resetting, setResetting] = useState(false);
+  const [archiveMonth, setArchiveMonth] = useState(() => {
+    const previousMonth = new Date();
+    previousMonth.setDate(1);
+    previousMonth.setMonth(previousMonth.getMonth() - 1);
+    return `${previousMonth.getFullYear()}-${String(previousMonth.getMonth() + 1).padStart(2, "0")}`;
+  });
   const [query, setQuery] = useState("");
   const [type, setType] = useState("ALL");
   const [category, setCategory] = useState("ALL");
@@ -159,14 +165,20 @@ const History = () => {
 
   const resetMonth = async () => {
     if (resetBusy.current) return;
-    const confirmReset = window.confirm("Archive all current transactions? Each payment will appear under its transaction month in Analytics. Payments added during archiving will remain in History.");
+    if (!archiveMonth) {
+      toast.error("Select the salary-cycle month to archive");
+      return;
+    }
+    const confirmReset = window.confirm(
+      `Archive all current transactions under the ${archiveMonth} salary cycle? Every active transaction will be labelled ${archiveMonth} in Monthly Archive. Payments added while archiving will remain in History.`
+    );
     if (!confirmReset) return;
     try {
       resetBusy.current = true;
       setResetting(true);
-      const result = await archiveTransactions(API, token);
+      const result = await archiveTransactions(API, token, archiveMonth);
       clearFilters();
-      toast.success(`${result.archivedCount} transactions archived`);
+      toast.success(`${result.archivedCount} transactions archived under ${archiveMonth}`);
       await loadTransactions();
     } catch (error) {
       console.error(error);
@@ -180,9 +192,13 @@ const History = () => {
   return (
     <div className="history-page">
       <div className="history-page-heading">
-        <div><p>Transactions</p><h1>Transaction History</h1><span>Search, filter and manage every transaction in one place.</span></div>
+        <div><p>Transactions</p><h1>Transaction History</h1><span>Choose a salary-cycle month, then archive all active transactions under that month.</span></div>
         <div className="history-heading-actions">
           <div className="history-count">{total} records</div>
+          <label className="archive-month-picker">
+            <span>Archive under</span>
+            <input type="month" value={archiveMonth} onChange={(event) => setArchiveMonth(event.target.value)} aria-label="Salary cycle month" />
+          </label>
           <button type="button" className="reset-month-btn" onClick={resetMonth} disabled={resetting}><RotateCcw size={17} />{resetting ? "Archiving..." : "Archive Transactions"}</button>
         </div>
       </div>
