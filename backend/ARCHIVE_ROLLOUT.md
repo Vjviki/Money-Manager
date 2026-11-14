@@ -27,13 +27,16 @@ retain notification IDs, so deduplication cannot be recovered for those old rows
 
 - The History button is now “Archive Transactions”. As before, it archives ALL
   active records, regardless of History filters, rather than just one calendar month.
-- New archives use the payment date's UTC month, matching the existing server date
-  convention, instead of the month in which Reset was pressed.
+- New archives use the salary-cycle month explicitly selected in History. Every
+  active transaction frozen into that archive receives the selected backup_month,
+  regardless of its transaction date. For example, October salary-funded expenses
+  made in November can be archived under 2026-10.
 - Existing archives are untouched, including historical month labels and any old
   duplicates. No speculative historical cleanup is performed.
 - History reloads after success, so new arrivals remain visible.
-- Legacy clients without a request key retain atomic safety, but cannot get the
-  lost-response retry guarantee. Update the frontend/APK with the backend rollout.
+- The frontend sends archiveMonth in the reset request and keeps a separate pending
+  idempotency key per user and selected month. Deploy the updated frontend/APK with
+  the backend: older clients that omit archiveMonth will receive HTTP 400.
 - Requests over 10,000 active records fail before moving data. Larger accounts need
   a separate resumable bulk archive design; this guard bounds transaction size.
 
