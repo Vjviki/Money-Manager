@@ -23,7 +23,7 @@ test('archive: atomic rollback, races, retries, account isolation and payment id
     // deletions must roll back, not leave a partial archive.
     const insertMany = Backup.insertMany;
     Backup.insertMany = async function (...args) { await insertMany.apply(this, args); throw new Error('Injected archive failure'); };
-    try { await assert.rejects(archiveService.archive(alice._id, 'rollback-request-0001'), /Injected/); }
+    try { await assert.rejects(archiveService.archive(alice._id, 'rollback-request-0001', '2026-10'), /Injected/); }
     finally { Backup.insertMany = insertMany; }
     assert.equal(await Backup.countDocuments(), 0);
     assert.equal(await Transaction.countDocuments({ user_id: alice._id }), 2);
@@ -31,7 +31,7 @@ test('archive: atomic rollback, races, retries, account isolation and payment id
 
     const createReceipt = ArchiveReset.create;
     ArchiveReset.create = async () => { throw new Error('Injected receipt failure'); };
-    try { await assert.rejects(archiveService.archive(alice._id, 'rollback-request-0002'), /Injected/); }
+    try { await assert.rejects(archiveService.archive(alice._id, 'rollback-request-0002', '2026-10'), /Injected/); }
     finally { ArchiveReset.create = createReceipt; }
     assert.equal(await Backup.countDocuments(), 0);
     assert.equal(await Transaction.countDocuments({ user_id: alice._id }), 2);
@@ -43,23 +43,23 @@ test('archive: atomic rollback, races, retries, account isolation and payment id
       if (!added) { added = true; await Transaction.create(payment(alice, 'New arrival')); }
       return startSession.apply(this, args);
     };
-    try { assert.equal(await archiveService.archive(alice._id, 'archive-request-0001'), 2); }
+    try { assert.equal(await archiveService.archive(alice._id, 'archive-request-0001', '2026-10'), 2); }
     finally { mongoose.startSession = startSession; }
     assert.deepEqual((await Transaction.find({ user_id: alice._id })).map(t => t.title), ['New arrival']);
-    assert.deepEqual((await Backup.find({ user_id: alice._id }).sort({ backup_month: 1 })).map(t => t.backup_month), ['2026-08', '2026-09']);
-    assert.equal(await archiveService.archive(alice._id, 'archive-request-0001'), 2);
+    assert.deepEqual((await Backup.find({ user_id: alice._id }).sort({ backup_month: 1 })).map(t => t.backup_month), ['2026-10', '2026-10']);
+    assert.equal(await archiveService.archive(alice._id, 'archive-request-0001', '2026-10'), 2);
     assert.equal(await Transaction.countDocuments({ user_id: alice._id }), 1);
     await archiveService.addTransaction({ ...payment(alice, 'retry'), detected_id: 'bank-1' });
     assert.equal(await Transaction.countDocuments({ user_id: alice._id }), 1);
 
     // Different reset requests race, and a detected upload races archiving.
     await Promise.all([
-      archiveService.archive(alice._id, 'concurrent-request-01'),
-      archiveService.archive(alice._id, 'concurrent-request-02'),
+      archiveService.archive(alice._id, 'concurrent-request-01', '2026-10'),
+      archiveService.archive(alice._id, 'concurrent-request-02', '2026-10'),
       archiveService.addTransaction({ ...payment(alice, 'bank-2'), detected_id: 'bank-2' }),
     ]);
     await Promise.all([
-      archiveService.archive(alice._id, 'concurrent-request-03'),
+      archiveService.archive(alice._id, 'concurrent-request-03', '2026-10'),
       archiveService.addTransaction({ ...payment(alice, 'bank-2 retry'), detected_id: 'bank-2' }),
     ]);
     assert.equal(await Backup.countDocuments({ user_id: alice._id }), 4);
@@ -70,11 +70,11 @@ test('archive: atomic rollback, races, retries, account isolation and payment id
 
     await Transaction.create(payment(alice, 'same request'));
     assert.deepEqual(await Promise.all([
-      archiveService.archive(alice._id, 'same-request-000001'),
-      archiveService.archive(alice._id, 'same-request-000001'),
+      archiveService.archive(alice._id, 'same-request-000001', '2026-10'),
+      archiveService.archive(alice._id, 'same-request-000001', '2026-10'),
     ]), [1, 1]);
     assert.equal(await ArchiveReset.countDocuments({ request_id: 'same-request-000001' }), 1);
-    assert.equal(await archiveService.archive(alice._id, 'empty-request-00001'), 0);
+    assert.equal(await archiveService.archive(alice._id, 'empty-request-00001', '2026-10'), 0);
 
     // Legacy archive rows without source IDs still coexist under the partial index.
     await Backup.create([{ user_id: alice._id, title: 'legacy1' }, { user_id: alice._id, title: 'legacy2' }]);
@@ -83,7 +83,7 @@ test('archive: atomic rollback, races, retries, account isolation and payment id
     assert.equal((await fetch(url, { method: 'POST' })).status, 401);
     const token = jwt.sign({ id: String(alice._id), ver: 0 }, process.env.JWT_SECRET, { expiresIn: '1h' });
     assert.equal((await fetch(url, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Idempotency-Key': 'bad' } })).status, 400);
-    const response = await fetch(url, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Idempotency-Key': 'archive-request-0001' } });
+    const response = await fetch(url, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Idempotency-Key': 'archive-request-0001', 'Content-Type': 'application/json' }, body: JSON.stringify({ archiveMonth: '2026-10' }) });
     assert.equal(response.status, 200); assert.equal((await response.json()).archivedCount, 2);
   } finally {
     if (server) { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
