@@ -84,6 +84,7 @@ const ArchiveReset = mongoose.model("ArchiveReset", new mongoose.Schema({
   user_id: mongoose.Schema.Types.ObjectId,
   request_id: String,
   archived_count: Number,
+  backup_month: String,
   created_at: { type: Date, default: Date.now },
 }).index({ user_id: 1, request_id: 1 }, { unique: true }));
 const archiveService = createArchiveService({ mongoose, User, Transaction, Backup, ArchiveReset });
@@ -400,17 +401,22 @@ app.get("/analytics", authenticateToken, async (req, res) => {
 
 app.post("/reset-month", authenticateToken, limiter(20, req => req.user.id), async (req, res) => {
   const requestId = req.get("Idempotency-Key") || randomUUID();
+  const archiveMonth = req.body?.archiveMonth;
   if (!/^[a-zA-Z0-9_-]{16,100}$/.test(requestId)) {
     return res.status(400).json({ error: "Invalid archive request ID" });
   }
   try {
-    const archivedCount = await archiveService.archive(req.user.id, requestId);
-    res.json({ message: "Archive completed", archivedCount, requestId });
+    const archivedCount = await archiveService.archive(req.user.id, requestId, archiveMonth);
+    res.json({ message: "Archive completed", archivedCount, requestId, archiveMonth });
   } catch (error) {
     console.error("Monthly archive failed:", error.message);
     res.status(error.status || 503).json({ error: error.status === 413
       ? "Too many transactions for one archive. Contact support."
-      : "Unable to confirm archive completion. Retry the same request." });
+      : error.status === 400
+        ? "Select a valid archive month before archiving."
+        : error.status === 409
+          ? "This archive request was already used for a different salary cycle."
+          : "Unable to confirm archive completion. Retry the same request." });
   }
 });
 

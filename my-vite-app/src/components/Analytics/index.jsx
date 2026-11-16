@@ -221,7 +221,7 @@ const Analytics = () => {
                   <div className="month-metrics"><span>Expenses <strong className="expense-metric">{privateMoney(item.expenses)}</strong></span><span>Savings <strong className={item.savings >= 0 ? "income-metric" : "expense-metric"}>{privateMoney(item.savings)}</strong></span></div>
                   <button onClick={() => openDetails(item.month)}>View Details</button>
                 </article>
-              )) : <div className="analytics-empty">No archived months yet. Use Reset Month from History when you close a month.</div>}
+              )) : <div className="analytics-empty">No archived months yet. Select a salary-cycle month in History and archive transactions when you close a cycle.</div>}
             </div>
           </section>
         </>
